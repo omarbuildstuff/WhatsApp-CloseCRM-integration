@@ -159,6 +159,10 @@ export async function handleCloseWebhook(req: Request, res: Response): Promise<v
       const jid = jidEncode(digits, 's.whatsapp.net');
 
       // Step 8: Send via Baileys
+      if (!data.message_markdown || typeof data.message_markdown !== 'string') {
+        logger.error({ closeActivityId: data.id }, 'Empty or missing message_markdown — dropping');
+        return;
+      }
       const result = await sock.sendMessage(jid, { text: data.message_markdown });
       const waMessageId = result?.key?.id ?? null;
 
