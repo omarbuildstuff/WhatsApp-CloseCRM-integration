@@ -13,7 +13,7 @@ Five phases build the system in strict dependency order: the PostgreSQL foundati
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - PostgreSQL schema, auth state persistence, and SessionManager with correct reconnect logic (completed 2026-04-09)
-- [ ] **Phase 2: Close API Client** - CloseApiClient with retry, PhoneCache with 1-hour TTL, and E.164 phone normalization
+- [x] **Phase 2: Close API Client** - CloseApiClient with retry, PhoneCache with 1-hour TTL, and E.164 phone normalization (completed 2026-04-09)
 - [ ] **Phase 3: Inbound Sync** - WhatsApp messages flow into PostgreSQL and appear in Close lead timelines as native activities
 - [ ] **Phase 4: Outbound Sync** - Close webhook triggers WhatsApp send with mandatory loop guard in place from day one
 - [ ] **Phase 5: Dashboard and API** - Web dashboard, QR WebSocket streaming, and Bearer-authenticated REST API surface all prior work
@@ -43,11 +43,11 @@ Plans:
   1. A WhatsApp JID (e.g. 14155551234@s.whatsapp.net) resolves to the correct Close lead on first lookup — E.164 normalization working
   2. Repeated lookups within one hour hit the DB cache, not the Close API — confirmed by zero extra API calls on second lookup
   3. A Close API 429 response triggers a backoff retry rather than propagating an error
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 02-01-PLAN.md — Install deps, Close API types, CloseApiClient with retry, and JID-to-E.164 normalizer
-- [ ] 02-02-PLAN.md — PhoneCache with two-layer cache (in-memory + PostgreSQL, 1-hour TTL)
+- [x] 02-01-PLAN.md — Install deps, Close API types, CloseApiClient with retry, and JID-to-E.164 normalizer
+- [x] 02-02-PLAN.md — PhoneCache with two-layer cache (in-memory + PostgreSQL, 1-hour TTL)
 
 ### Phase 3: Inbound Sync
 **Goal**: Every inbound WhatsApp message from a known lead appears in their Close timeline as a native WhatsApp activity
@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete    | 2026-04-09 |
-| 2. Close API Client | 0/2 | Not started | - |
+| 2. Close API Client | 2/2 | Complete    | 2026-04-09 |
 | 3. Inbound Sync | 0/? | Not started | - |
 | 4. Outbound Sync | 0/? | Not started | - |
 | 5. Dashboard and API | 0/? | Not started | - |
