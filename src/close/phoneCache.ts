@@ -11,6 +11,7 @@ interface CacheEntry {
 
 export class PhoneCache {
   private readonly mem = new Map<string, CacheEntry>();
+  private readonly inFlight = new Map<string, Promise<LeadInfo | null>>();
 
   /**
    * Look up a phone number (E.164 format) and return the matching Close lead.
@@ -18,8 +19,9 @@ export class PhoneCache {
    *
    * Lookup order:
    * 1. In-memory Map (fastest, survives within process lifetime)
-   * 2. PostgreSQL close_phone_cache table (survives restarts)
-   * 3. Close API via closeClient.findLeadByPhone() (cache miss)
+   * 2. Coalesce concurrent in-flight lookups for the same number
+   * 3. PostgreSQL close_phone_cache table (survives restarts)
+   * 4. Close API via closeClient.findLeadByPhone() (cache miss)
    */
   async lookup(e164: string): Promise<LeadInfo | null> {
     // 1. In-memory check
@@ -28,7 +30,24 @@ export class PhoneCache {
       return memHit.lead;
     }
 
-    // 2. DB cache check (1-hour TTL enforced in SQL)
+    // 2. Coalesce concurrent lookups for the same number to avoid duplicate API calls
+    const existing = this.inFlight.get(e164);
+    if (existing) return existing;
+
+    const promise = this._fetchAndCache(e164).finally(() => {
+      this.inFlight.delete(e164);
+    });
+    this.inFlight.set(e164, promise);
+    return promise;
+  }
+
+  /**
+   * Internal: check DB cache, then fall back to Close API, then persist result.
+   * Called at most once per phone number at a time — concurrent callers share
+   * the same promise via the `inFlight` map.
+   */
+  private async _fetchAndCache(e164: string): Promise<LeadInfo | null> {
+    // 3. DB cache check (1-hour TTL enforced in SQL)
     const dbResult = await pool.query<{
       lead_id: string | null;
       lead_name: string | null;
@@ -49,7 +68,7 @@ export class PhoneCache {
       return lead;
     }
 
-    // 3. Close API call — handle failure gracefully
+    // 4. Close API call — handle failure gracefully
     let lead: LeadInfo | null;
     try {
       lead = await closeClient.findLeadByPhone(e164);
@@ -59,7 +78,7 @@ export class PhoneCache {
       return null;
     }
 
-    // 4. Persist to DB (upsert) and in-memory
+    // 5. Persist to DB (upsert) and in-memory
     try {
       await pool.query(
         `INSERT INTO close_phone_cache (phone_e164, lead_id, lead_name, cached_at)
