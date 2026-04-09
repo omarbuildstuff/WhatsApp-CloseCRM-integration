@@ -19,6 +19,7 @@ const TERMINAL_REASONS = new Set([
 export class SessionManager extends EventEmitter {
   private sessions = new Map<string, WASocket>();
   private reconnectAttempts = new Map<string, number>();
+  private reconnectTimers = new Map<string, NodeJS.Timeout>();
   private logger = pino({ level: 'info' });
 
   async connect(repId: string): Promise<void> {
@@ -37,7 +38,7 @@ export class SessionManager extends EventEmitter {
       printQRInTerminal: false,
     });
 
-    sock.ev.on('connection.update', async (update) => {
+    const handleConnectionUpdate = async (update: { connection?: string; lastDisconnect?: { error: Error | undefined }; qr?: string }) => {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
@@ -53,6 +54,12 @@ export class SessionManager extends EventEmitter {
       if (connection === 'close') {
         await this.handleReconnect(repId, lastDisconnect);
       }
+    };
+
+    sock.ev.on('connection.update', (update) => {
+      handleConnectionUpdate(update).catch((err) => {
+        this.logger.error({ repId, err }, 'Error in connection.update handler');
+      });
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -105,7 +112,11 @@ export class SessionManager extends EventEmitter {
     this.reconnectAttempts.set(repId, attempt + 1);
     this.logger.info({ repId, statusCode, attempt: attempt + 1, delayMs }, 'Scheduling reconnect');
 
-    setTimeout(() => this.connect(repId), delayMs);
+    const timer = setTimeout(() => {
+      this.reconnectTimers.delete(repId);
+      this.connect(repId);
+    }, delayMs);
+    this.reconnectTimers.set(repId, timer);
   }
 
   async resumeAll(): Promise<void> {
@@ -120,6 +131,11 @@ export class SessionManager extends EventEmitter {
   }
 
   async disconnect(repId: string): Promise<void> {
+    const timer = this.reconnectTimers.get(repId);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectTimers.delete(repId);
+    }
     const sock = this.sessions.get(repId);
     if (sock) {
       sock.end(undefined);
@@ -130,11 +146,21 @@ export class SessionManager extends EventEmitter {
   }
 
   async logout(repId: string): Promise<void> {
+    const timer = this.reconnectTimers.get(repId);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectTimers.delete(repId);
+    }
     const sock = this.sessions.get(repId);
     if (sock) {
-      await sock.logout();
+      try {
+        await sock.logout();
+      } catch (err) {
+        this.logger.warn({ repId, err }, 'sock.logout() failed — continuing with local cleanup');
+      }
       this.sessions.delete(repId);
     }
+    // Always clean up auth state and update DB status
     await this.clearAuthState(repId);
     await pool.query("UPDATE reps SET status = 'needs_qr' WHERE id = $1", [repId]);
     this.reconnectAttempts.delete(repId);
