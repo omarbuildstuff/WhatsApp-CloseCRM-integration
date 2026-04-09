@@ -488,15 +488,16 @@
       const statusClass = 'status-' + rep.status;
       const statusLabel = rep.status === 'needs_qr' ? 'needs QR' : rep.status;
 
+      const safeId = escHtml(rep.id);
       const connectBtn = (rep.status === 'disconnected' || rep.status === 'needs_qr')
-        ? `<button class="btn btn-warning" onclick="connectRep('${rep.id}')">Connect</button>`
+        ? `<button class="btn btn-warning" onclick="connectRep('${safeId}')">Connect</button>`
         : '';
       const disconnectBtn = rep.status === 'connected'
-        ? `<button class="btn btn-ghost" onclick="disconnectRep('${rep.id}')">Disconnect</button>`
+        ? `<button class="btn btn-ghost" onclick="disconnectRep('${safeId}')">Disconnect</button>`
         : '';
 
       return `
-        <div class="rep-card" id="rep-${rep.id}">
+        <div class="rep-card" id="rep-${safeId}">
           <div class="rep-info">
             <div class="rep-name">${escHtml(rep.name)}</div>
             <div class="rep-meta">
@@ -510,7 +511,7 @@
           <div class="rep-actions">
             ${connectBtn}
             ${disconnectBtn}
-            <button class="btn btn-danger" onclick="removeRep('${rep.id}', '${escHtml(rep.name)}')">Remove</button>
+            <button class="btn btn-danger" onclick="removeRep('${safeId}', '${escHtml(rep.name)}')">Remove</button>
           </div>
         </div>
       `;
