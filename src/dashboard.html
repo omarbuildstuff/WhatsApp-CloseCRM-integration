@@ -648,7 +648,12 @@
     ws = new WebSocket(protocol + '//' + location.host + '/ws?token=' + encodeURIComponent(token));
 
     ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
+      let msg;
+      try {
+        msg = JSON.parse(event.data);
+      } catch (_) {
+        return; // ignore non-JSON frames
+      }
       if (msg.type === 'qr') {
         handleQrEvent(msg.repId, msg.dataUrl);
       }
