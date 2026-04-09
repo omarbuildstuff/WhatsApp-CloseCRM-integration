@@ -196,8 +196,13 @@ export function createDashboardRouter(): express.Router {
   // CRITICAL: sessionManager.logout() MUST be called before DELETE FROM reps
   // to prevent orphaned sessions and FK violations (RESEARCH Pitfall 4)
   apiRouter.delete('/reps/:id', async (req, res) => {
+    const repId = req.params.id;
     try {
-      const repId = req.params.id as string;
+      const { rowCount } = await pool.query('SELECT 1 FROM reps WHERE id = $1', [repId]);
+      if (!rowCount) {
+        res.status(404).json({ error: 'Rep not found' });
+        return;
+      }
 
       // Step 1: Logout Baileys session BEFORE deleting the DB row
       await sessionManager.logout(repId);
@@ -208,7 +213,7 @@ export function createDashboardRouter(): express.Router {
       logger.info({ repId }, 'Rep deleted');
       res.json({ ok: true });
     } catch (err) {
-      logger.error({ err }, 'DELETE /api/reps/:id failed');
+      logger.error({ repId, err }, 'DELETE /api/reps/:id failed');
       res.status(500).json({ error: 'Internal server error' });
     }
   });
