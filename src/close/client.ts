@@ -76,7 +76,7 @@ export class CloseApiClient {
     patch: WhatsAppActivityUpdatePayload
   ): Promise<void> {
     try {
-      await this.http.put(`/activity/whatsapp_message/${activityId}/`, patch);
+      await this.http.patch(`/activity/whatsapp_message/${activityId}/`, patch);
     } catch (err) {
       // Non-critical: the WA message was already sent. Log and continue.
       logger.error(
