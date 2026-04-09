@@ -158,6 +158,16 @@ export async function handleCloseWebhook(req: Request, res: Response): Promise<v
       }
       const jid = jidEncode(digits, 's.whatsapp.net');
 
+      // Step 7.5: Idempotency guard — skip if this Close activity was already processed
+      const existing = await pool.query(
+        'SELECT id FROM messages WHERE close_activity_id = $1',
+        [data.id]
+      );
+      if (existing.rows.length > 0) {
+        logger.info({ closeActivityId: data.id }, 'Already processed — skipping duplicate webhook');
+        return;
+      }
+
       // Step 8: Send via Baileys
       if (!data.message_markdown || typeof data.message_markdown !== 'string') {
         logger.error({ closeActivityId: data.id }, 'Empty or missing message_markdown — dropping');
