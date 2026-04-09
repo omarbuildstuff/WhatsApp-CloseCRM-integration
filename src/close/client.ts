@@ -43,7 +43,13 @@ export class CloseApiClient {
         _limit: 1,
       },
     });
-    const lead = res.data.data[0];
+    const leads = res.data?.data;
+    if (!Array.isArray(leads)) {
+      throw new Error(
+        `Unexpected Close API response shape for phone lookup: ${JSON.stringify(res.data)}`
+      );
+    }
+    const lead = leads[0];
     if (!lead) return null;
     return { leadId: lead.id, leadName: lead.display_name };
   }
