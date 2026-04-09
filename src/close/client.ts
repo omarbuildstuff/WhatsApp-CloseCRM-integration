@@ -1,7 +1,10 @@
 import axios, { AxiosInstance } from 'axios';
 import axiosRetry from 'axios-retry';
+import pino from 'pino';
 import { config } from '../config';
 import type { CloseLeadListResponse, CloseLead, LeadInfo, WhatsAppActivityPayload, WhatsAppActivityResponse, WhatsAppActivityUpdatePayload } from './types';
+
+const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
 const CLOSE_BASE_URL = 'https://api.close.com/api/v1';
 
@@ -76,7 +79,7 @@ export class CloseApiClient {
       await this.http.put(`/activity/whatsapp_message/${activityId}/`, patch);
     } catch (err) {
       // Non-critical: the WA message was already sent. Log and continue.
-      console.error(
+      logger.error(
         { activityId, err },
         'Failed to update Close activity with WA message ID — non-critical'
       );
@@ -91,7 +94,7 @@ export class CloseApiClient {
       const phone = res.data?.contacts?.[0]?.phones?.[0]?.phone ?? null;
       return phone;
     } catch (err) {
-      console.error({ leadId, err }, 'Failed to fetch lead contacts from Close');
+      logger.error({ leadId, err }, 'Failed to fetch lead contacts from Close');
       return null;
     }
   }
