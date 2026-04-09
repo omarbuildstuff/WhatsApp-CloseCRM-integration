@@ -76,7 +76,11 @@ export class MessageHandler {
     const body = extractBody(msg);
     const mediaType = detectMediaType(msg);
     const e164 = normalizeJidToE164(jid);
-    const tsSec = Number(msg.messageTimestamp ?? 0);
+    const tsSec = msg.messageTimestamp
+      ? (typeof msg.messageTimestamp === 'number'
+          ? msg.messageTimestamp
+          : msg.messageTimestamp.toNumber())   // Long has .toNumber()
+      : 0;
     const timestamp = new Date(tsSec * 1000); // PITFALL: seconds, not ms!
 
     try {
