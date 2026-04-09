@@ -141,7 +141,7 @@ export function createDashboardRouter(): express.Router {
   // ── Public route ───────────────────────────────────────────────────────────
 
   router.get('/', (_req, res) => {
-    res.sendFile(path.join(__dirname, 'dashboard.html'));
+    res.sendFile(path.resolve(process.cwd(), 'src', 'dashboard.html'));
   });
 
   // ── Protected API routes ───────────────────────────────────────────────────
