@@ -8,9 +8,15 @@ function required(key: string): string {
   return value;
 }
 
+const rawPort = process.env.PORT ?? '3000';
+const parsedPort = parseInt(rawPort, 10);
+if (isNaN(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+  throw new Error(`Invalid PORT env var: "${rawPort}"`);
+}
+
 export const config = {
   databaseUrl: required('DATABASE_URL'),
-  port: Number(process.env.PORT ?? 3000),
+  port: parsedPort,
   closeApiKey: required('CLOSE_API_KEY'),
   dashboardPassword: required('DASHBOARD_PASSWORD'),
   closeWebhookSecret: required('CLOSE_WEBHOOK_SECRET'),
