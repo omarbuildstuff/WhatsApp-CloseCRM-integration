@@ -20,7 +20,13 @@ function createCloseAxios(): AxiosInstance {
       (err.response?.status ?? 0) >= 500,
     retryDelay: (retryCount, err) => {
       const retryAfter = err.response?.headers?.['retry-after'];
-      if (retryAfter) return parseFloat(retryAfter) * 1000;
+      if (retryAfter) {
+        const seconds = parseFloat(retryAfter);
+        if (!isNaN(seconds)) return seconds * 1000;
+        // HTTP-date format fallback (e.g. "Thu, 10 Apr 2026 01:00:00 GMT")
+        const targetMs = Date.parse(retryAfter);
+        if (!isNaN(targetMs)) return Math.max(0, targetMs - Date.now());
+      }
       return axiosRetry.exponentialDelay(retryCount);
     },
   });
