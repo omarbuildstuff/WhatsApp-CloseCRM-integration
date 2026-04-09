@@ -11,6 +11,6 @@ function required(key: string): string {
 export const config = {
   databaseUrl: required('DATABASE_URL'),
   port: Number(process.env.PORT ?? 3000),
-  closeApiKey: process.env.CLOSE_API_KEY ?? '',
-  dashboardPassword: process.env.DASHBOARD_PASSWORD ?? '',
+  closeApiKey: required('CLOSE_API_KEY'),
+  dashboardPassword: required('DASHBOARD_PASSWORD'),
 };
