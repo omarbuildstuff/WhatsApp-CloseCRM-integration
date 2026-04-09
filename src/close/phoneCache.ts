@@ -9,9 +9,15 @@ interface CacheEntry {
   expiresAt: number;
 }
 
+interface LeadPhoneCacheEntry {
+  phone: string | null;
+  expiresAt: number;
+}
+
 export class PhoneCache {
   private readonly mem = new Map<string, CacheEntry>();
   private readonly inFlight = new Map<string, Promise<LeadInfo | null>>();
+  private readonly leadMem = new Map<string, LeadPhoneCacheEntry>();
 
   /**
    * Look up a phone number (E.164 format) and return the matching Close lead.
@@ -96,6 +102,35 @@ export class PhoneCache {
 
     this.mem.set(e164, { lead, expiresAt: Date.now() + ONE_HOUR_MS });
     return lead;
+  }
+
+  /**
+   * Resolve the primary phone number for a Close lead ID.
+   * Uses a 1-hour in-memory cache to comply with CLAUDE.md architecture rule:
+   * "Phone number lookups against Close API MUST use the 1-hour cache."
+   *
+   * Falls back to closeClient.getLeadContacts() on cache miss and caches
+   * the result (including null) to prevent repeated API calls for the same lead.
+   */
+  async getLeadPhone(leadId: string): Promise<string | null> {
+    const memHit = this.leadMem.get(leadId);
+    if (memHit && memHit.expiresAt > Date.now()) return memHit.phone;
+
+    // DB cache: check close_phone_cache for any row matching this lead_id
+    const dbResult = await pool.query<{ phone_e164: string | null }>(
+      `SELECT phone_e164 FROM close_phone_cache WHERE lead_id = $1 AND cached_at > NOW() - INTERVAL '1 hour' LIMIT 1`,
+      [leadId]
+    );
+    if (dbResult.rows.length > 0) {
+      const phone = dbResult.rows[0].phone_e164 ?? null;
+      this.leadMem.set(leadId, { phone, expiresAt: Date.now() + ONE_HOUR_MS });
+      return phone;
+    }
+
+    // Fallback to live API — then cache result
+    const phone = await closeClient.getLeadContacts(leadId);
+    this.leadMem.set(leadId, { phone, expiresAt: Date.now() + ONE_HOUR_MS });
+    return phone;
   }
 }
 

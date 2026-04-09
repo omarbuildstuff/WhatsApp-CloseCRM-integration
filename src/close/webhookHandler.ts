@@ -5,6 +5,7 @@ import { jidEncode } from '@whiskeysockets/baileys';
 import { pool } from '../db/pool';
 import { sessionManager } from '../whatsapp/sessionManager';
 import { closeClient } from './client';
+import { phoneCache } from './phoneCache';
 import { config } from '../config';
 import type { CloseWebhookActivityData } from './types';
 
@@ -143,8 +144,8 @@ export async function handleCloseWebhook(req: Request, res: Response): Promise<v
         return;
       }
 
-      // Step 7: Resolve customer phone number from lead_id
-      const phoneE164 = await closeClient.getLeadContacts(data.lead_id);
+      // Step 7: Resolve customer phone number from lead_id (cached — CLAUDE.md architecture rule)
+      const phoneE164 = await phoneCache.getLeadPhone(data.lead_id);
       if (!phoneE164) {
         logger.warn({ leadId: data.lead_id }, 'Cannot resolve phone for lead');
         return;
