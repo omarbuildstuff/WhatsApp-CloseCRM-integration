@@ -1,0 +1,30 @@
+{
+  "name": "wa-close-integration",
+  "version": "1.0.0",
+  "description": "Multi-rep WhatsApp ↔ Close.com CRM integration via WhatsApp Web",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "db:init": "tsx src/db-init.ts"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.16",
+    "axios": "^1.7.0",
+    "express": "^4.21.0",
+    "pg": "^8.13.0",
+    "pino": "^9.5.0",
+    "qrcode": "^1.5.4",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
