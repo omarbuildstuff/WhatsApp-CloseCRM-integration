@@ -49,19 +49,31 @@ export class PhoneCache {
       return lead;
     }
 
-    // 3. Close API call (cache miss — both hits and nulls get cached)
-    const lead = await closeClient.findLeadByPhone(e164);
+    // 3. Close API call — handle failure gracefully
+    let lead: LeadInfo | null;
+    try {
+      lead = await closeClient.findLeadByPhone(e164);
+    } catch (err) {
+      console.error(`[PhoneCache] Close API lookup failed for ${e164}:`, err);
+      // Do not cache — let the next call retry after a natural delay
+      return null;
+    }
 
     // 4. Persist to DB (upsert) and in-memory
-    await pool.query(
-      `INSERT INTO close_phone_cache (phone_e164, lead_id, lead_name, cached_at)
-       VALUES ($1, $2, $3, NOW())
-       ON CONFLICT (phone_e164) DO UPDATE
-         SET lead_id = EXCLUDED.lead_id,
-             lead_name = EXCLUDED.lead_name,
-             cached_at = NOW()`,
-      [e164, lead?.leadId ?? null, lead?.leadName ?? null]
-    );
+    try {
+      await pool.query(
+        `INSERT INTO close_phone_cache (phone_e164, lead_id, lead_name, cached_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (phone_e164) DO UPDATE
+           SET lead_id = EXCLUDED.lead_id,
+               lead_name = EXCLUDED.lead_name,
+               cached_at = NOW()`,
+        [e164, lead?.leadId ?? null, lead?.leadName ?? null]
+      );
+    } catch (err) {
+      console.error(`[PhoneCache] DB upsert failed for ${e164}:`, err);
+      // In-memory cache still set below — survivable
+    }
 
     this.mem.set(e164, { lead, expiresAt: Date.now() + ONE_HOUR_MS });
     return lead;
