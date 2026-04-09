@@ -2,6 +2,7 @@ import express from 'express';
 import { pool } from './db/pool';
 import { sessionManager } from './whatsapp/sessionManager';
 import { messageHandler } from './whatsapp/messageHandler';
+import { handleCloseWebhook } from './close/webhookHandler';
 import { config } from './config';
 import pino from 'pino';
 
@@ -23,8 +24,20 @@ async function main() {
   });
   logger.info('Message handler wired');
 
-  // Minimal Express server (routes added in later phases)
   const app = express();
+
+  // Close webhook — MUST be before express.json() to preserve raw body for HMAC verification
+  app.post(
+    '/webhook/close',
+    express.raw({ type: 'application/json' }),
+    (req, res) => {
+      handleCloseWebhook(req, res).catch((err) => {
+        logger.error({ err }, 'Webhook handler threw unexpectedly');
+        if (!res.headersSent) res.status(500).end();
+      });
+    }
+  );
+
   app.use(express.json());
 
   app.get('/health', (_req, res) => {
