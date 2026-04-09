@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Close API Client** - CloseApiClient with retry, PhoneCache with 1-hour TTL, and E.164 phone normalization (completed 2026-04-09)
 - [x] **Phase 3: Inbound Sync** - WhatsApp messages flow into PostgreSQL and appear in Close lead timelines as native activities (completed 2026-04-09)
 - [x] **Phase 4: Outbound Sync** - Close webhook triggers WhatsApp send with mandatory loop guard in place from day one (completed 2026-04-09)
-- [ ] **Phase 5: Dashboard and API** - Web dashboard, QR WebSocket streaming, and Bearer-authenticated REST API surface all prior work
+- [x] **Phase 5: Dashboard and API** - Web dashboard, QR WebSocket streaming, and Bearer-authenticated REST API surface all prior work (completed 2026-04-09)
 
 ## Phase Details
 
@@ -87,8 +87,11 @@ Plans:
   2. Clicking to connect a rep shows a QR code modal with a live countdown timer — scanning it with the rep's phone connects the session
   3. A request to any API endpoint without a valid Bearer token returns 401
   4. The send message form in the dashboard delivers a WhatsApp message to a specified phone number via a chosen rep
-**Plans**: TBD
-**UI hint**: yes
+**Plans:** 2/2 plans complete
+
+Plans:
+- [x] 05-01-PLAN.md — Bearer auth middleware, REST API routes (rep CRUD), dashboard HTML skeleton with dark theme
+- [x] 05-02-PLAN.md — WebSocket server, QR streaming, connect/disconnect/send routes, and full dashboard wiring
 
 ## Progress
 
@@ -101,4 +104,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. Close API Client | 2/2 | Complete    | 2026-04-09 |
 | 3. Inbound Sync | 1/1 | Complete    | 2026-04-09 |
 | 4. Outbound Sync | 2/2 | Complete    | 2026-04-09 |
-| 5. Dashboard and API | 0/? | Not started | - |
+| 5. Dashboard and API | 2/2 | Complete    | 2026-04-09 |
