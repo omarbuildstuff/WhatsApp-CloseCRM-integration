@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - PostgreSQL schema, auth state persistence, and SessionManager with correct reconnect logic (completed 2026-04-09)
 - [x] **Phase 2: Close API Client** - CloseApiClient with retry, PhoneCache with 1-hour TTL, and E.164 phone normalization (completed 2026-04-09)
-- [ ] **Phase 3: Inbound Sync** - WhatsApp messages flow into PostgreSQL and appear in Close lead timelines as native activities
+- [x] **Phase 3: Inbound Sync** - WhatsApp messages flow into PostgreSQL and appear in Close lead timelines as native activities (completed 2026-04-09)
 - [ ] **Phase 4: Outbound Sync** - Close webhook triggers WhatsApp send with mandatory loop guard in place from day one
 - [ ] **Phase 5: Dashboard and API** - Web dashboard, QR WebSocket streaming, and Bearer-authenticated REST API surface all prior work
 
@@ -58,7 +58,10 @@ Plans:
   2. The same WhatsApp message ID delivered twice results in exactly one activity in Close — no duplicates
   3. A message from an unknown number is stored in PostgreSQL with lead_id NULL and does not attempt a Close API write
   4. An image or audio message with a caption has that caption text synced to Close as the activity body
-**Plans**: TBD
+**Plans:** 1/1 plans complete
+
+Plans:
+- [x] 03-01-PLAN.md — MessageHandler with extractBody/detectMediaType, Close API postWhatsAppActivity method, and index.ts wiring
 
 ### Phase 4: Outbound Sync
 **Goal**: Reps can send WhatsApp messages from Close and the system never creates infinite send loops
@@ -92,6 +95,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete    | 2026-04-09 |
 | 2. Close API Client | 2/2 | Complete    | 2026-04-09 |
-| 3. Inbound Sync | 0/? | Not started | - |
+| 3. Inbound Sync | 1/1 | Complete    | 2026-04-09 |
 | 4. Outbound Sync | 0/? | Not started | - |
 | 5. Dashboard and API | 0/? | Not started | - |
