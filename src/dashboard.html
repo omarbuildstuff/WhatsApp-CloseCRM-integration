@@ -713,11 +713,12 @@
     // Update action buttons
     const actions = card.querySelector('.rep-actions');
     if (actions) {
+      const safeId = escHtml(repId);
       const connectBtn = (status === 'disconnected' || status === 'needs_qr')
-        ? '<button class="btn btn-warning" onclick="connectRep(\'' + repId + '\')">Connect</button>'
+        ? '<button class="btn btn-warning" onclick="connectRep(\'' + safeId + '\')">Connect</button>'
         : '';
       const disconnectBtn = status === 'connected'
-        ? '<button class="btn btn-ghost" onclick="disconnectRep(\'' + repId + '\')">Disconnect</button>'
+        ? '<button class="btn btn-ghost" onclick="disconnectRep(\'' + safeId + '\')">Disconnect</button>'
         : '';
       // Preserve the Remove button
       const removeBtn = actions.querySelector('.btn-danger');
