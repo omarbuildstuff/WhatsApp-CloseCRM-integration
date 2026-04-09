@@ -13,4 +13,5 @@ export const config = {
   port: Number(process.env.PORT ?? 3000),
   closeApiKey: required('CLOSE_API_KEY'),
   dashboardPassword: required('DASHBOARD_PASSWORD'),
+  closeWebhookSecret: required('CLOSE_WEBHOOK_SECRET'),
 };
