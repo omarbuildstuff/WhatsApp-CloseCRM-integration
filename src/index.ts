@@ -1,6 +1,7 @@
 import express from 'express';
 import { pool } from './db/pool';
 import { sessionManager } from './whatsapp/sessionManager';
+import { messageHandler } from './whatsapp/messageHandler';
 import { config } from './config';
 import pino from 'pino';
 
@@ -14,6 +15,14 @@ async function main() {
   // Restore all rep sessions from DB
   await sessionManager.resumeAll();
   logger.info('Sessions restored');
+
+  // Wire inbound message handler
+  sessionManager.on('message', ({ repId, msg }) => {
+    messageHandler.handle(repId, msg).catch((err) => {
+      logger.error({ repId, err }, 'Error in message handler');
+    });
+  });
+  logger.info('Message handler wired');
 
   // Minimal Express server (routes added in later phases)
   const app = express();
