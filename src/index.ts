@@ -18,9 +18,8 @@ async function main() {
 
   // Wire inbound message handler
   sessionManager.on('message', ({ repId, msg }) => {
-    messageHandler.handle(repId, msg).catch((err) => {
-      logger.error({ repId, err }, 'Error in message handler');
-    });
+    // handle() catches and logs all processing errors internally
+    void messageHandler.handle(repId, msg);
   });
   logger.info('Message handler wired');
 
