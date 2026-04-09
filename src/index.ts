@@ -4,7 +4,7 @@ import { pool } from './db/pool';
 import { sessionManager } from './whatsapp/sessionManager';
 import { messageHandler } from './whatsapp/messageHandler';
 import { handleCloseWebhook } from './close/webhookHandler';
-import { createDashboardRouter } from './dashboard';
+import { createDashboardRouter, setupWebSocket } from './dashboard';
 import { config } from './config';
 import pino from 'pino';
 
@@ -50,6 +50,7 @@ async function main() {
   app.use(createDashboardRouter());
 
   const server = http.createServer(app);
+  setupWebSocket(server);
   server.listen(config.port, () => {
     logger.info({ port: config.port }, 'Server started');
   });
