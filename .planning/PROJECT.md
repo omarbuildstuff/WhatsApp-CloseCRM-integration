@@ -8,45 +8,32 @@ A self-hosted multi-rep WhatsApp integration for Close.com CRM that replaces Tim
 
 When a lead messages a rep on WhatsApp, the full conversation appears in the lead's Close timeline as native chat bubbles — giving the entire sales team instant visibility without switching tools.
 
-## Current Milestone: v1.0 WhatsApp-Close Integration MVP
+## Current State
 
-**Goal:** Replace TimelinesAI with a self-hosted multi-rep WhatsApp ↔ Close CRM sync
+**v1.0 MVP shipped 2026-04-09** — all 18 requirements satisfied, 5 phases complete, 26 code review fixes applied.
 
-**Target features:**
-- Multi-rep WhatsApp connections via QR code (Baileys)
-- Inbound message sync to Close as native WhatsApp Message activities
-- Outbound message sending from Close via webhook → WhatsApp
-- Lead matching with phone number cache
-- PostgreSQL-backed session persistence
-- Web dashboard for rep management + QR scanning
-- REST API + WebSocket for real-time QR streaming
+### What's Built
+- Multi-rep WhatsApp connections via QR code (Baileys + PostgreSQL auth persistence)
+- Bidirectional sync: inbound WhatsApp → Close native activities, outbound Close webhook → WhatsApp
+- Phone number → lead matching with two-layer 1-hour cache (in-memory + PostgreSQL)
+- Dark-theme web dashboard with rep management, QR modal (WebSocket streaming), send form
+- REST API with Bearer token auth, HMAC-SHA256 webhook verification
+- Session auto-reconnect with terminal/transient disconnect discrimination
 
-## Requirements
+### Known Tech Debt
+- dashboard.html path coupling (src/ vs dist/ for container deployments)
+- Outbound direction value inconsistency ('outgoing' vs 'outbound')
+- Close API PUT vs PATCH for activity updates needs live verification
+- Human verification items deferred (E2E outbound, loop guard, dashboard visual)
 
-### Validated
-
-(None yet — ship to validate)
-
-### Active
-
-- [ ] Multi-rep WhatsApp connections via QR code
-- [ ] Inbound WhatsApp → Close sync as native activities
-- [ ] Outbound Close → WhatsApp message delivery
-- [ ] Phone number → lead matching with 1-hour cache
-- [ ] PostgreSQL session persistence (survives restarts)
-- [ ] Web dashboard for rep management
-- [ ] REST API with Bearer token auth
-- [ ] WebSocket for live QR code streaming
-
-### Out of Scope
-
-- Group chat syncing — complexity, not needed for MVP
-- WhatsApp template messages / broadcast campaigns — not core flow
-- Read receipts / delivery status — nice-to-have, not essential
-- Admin role separation — shared access for MVP
-- End-to-end encryption of stored messages — not required
-- Auto-assignment of new leads to reps — manual for MVP
-- Mobile app for dashboard — web-only for MVP
+### Out of Scope (unchanged)
+- Group chat syncing
+- WhatsApp template messages / broadcast campaigns
+- Read receipts / delivery status
+- Admin role separation
+- End-to-end encryption of stored messages
+- Auto-assignment of new leads to reps
+- Mobile app for dashboard
 
 ## Context
 
@@ -94,4 +81,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-09 after milestone v1.0 initialization*
+*Last updated: 2026-04-09 after milestone v1.0 completion*
