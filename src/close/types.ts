@@ -29,3 +29,16 @@ export interface CloseLeadListResponse {
   has_more: boolean;
   total_results: number;
 }
+
+/** Payload for POST /activity/whatsapp_message/ */
+export interface WhatsAppActivityPayload {
+  lead_id: string;
+  direction: 'inbound' | 'outbound';
+  external_whatsapp_message_id: string;
+  message_markdown: string;
+}
+
+/** Response from POST /activity/whatsapp_message/ */
+export interface WhatsAppActivityResponse {
+  id: string;
+}
