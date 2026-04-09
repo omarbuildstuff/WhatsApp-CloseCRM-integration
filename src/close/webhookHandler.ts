@@ -150,7 +150,12 @@ export async function handleCloseWebhook(req: Request, res: Response): Promise<v
         logger.warn({ leadId: data.lead_id }, 'Cannot resolve phone for lead');
         return;
       }
-      const digits = phoneE164.replace(/^\+/, '');
+      // Normalize to digits-only (E.164 strict) — Close stores numbers in user-entered formats
+      const digits = phoneE164.replace(/\D/g, '');
+      if (!digits || digits.length < 7 || digits.length > 15) {
+        logger.error({ leadId: data.lead_id, phoneE164 }, 'Invalid phone number format — cannot construct JID');
+        return;
+      }
       const jid = jidEncode(digits, 's.whatsapp.net');
 
       // Step 8: Send via Baileys
