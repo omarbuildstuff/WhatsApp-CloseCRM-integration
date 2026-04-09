@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import axiosRetry from 'axios-retry';
 import { config } from '../config';
-import type { CloseLeadListResponse, LeadInfo } from './types';
+import type { CloseLeadListResponse, LeadInfo, WhatsAppActivityPayload, WhatsAppActivityResponse } from './types';
 
 const CLOSE_BASE_URL = 'https://api.close.com/api/v1';
 
@@ -52,6 +52,14 @@ export class CloseApiClient {
     const lead = leads[0];
     if (!lead) return null;
     return { leadId: lead.id, leadName: lead.display_name };
+  }
+
+  async postWhatsAppActivity(payload: WhatsAppActivityPayload): Promise<string | null> {
+    const res = await this.http.post<WhatsAppActivityResponse>(
+      '/activity/whatsapp_message/',
+      payload
+    );
+    return res.data?.id ?? null;
   }
 }
 
