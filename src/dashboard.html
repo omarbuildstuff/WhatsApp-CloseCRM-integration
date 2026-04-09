@@ -412,6 +412,7 @@
         errEl.style.display = 'none';
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app').style.display = '';
+        connectWebSocket();
         await loadReps();
       } else {
         errEl.style.display = '';
@@ -426,6 +427,7 @@
   function logout() {
     localStorage.removeItem('token');
     token = '';
+    if (ws) { ws.close(); ws = null; }
     document.getElementById('app').style.display = 'none';
     document.getElementById('login-screen').style.display = '';
     document.getElementById('password-input').value = '';
@@ -441,6 +443,7 @@
         if (res.ok) {
           document.getElementById('login-screen').style.display = 'none';
           document.getElementById('app').style.display = '';
+          connectWebSocket();
           await loadReps();
         } else {
           localStorage.removeItem('token');
@@ -579,28 +582,24 @@
   }
 
   async function connectRep(id) {
+    showQrModal(id);
     try {
-      const res = await apiFetch('/api/reps/' + id + '/connect', { method: 'POST' });
-      if (res.ok) {
-        showQrModal(id);
-        await loadReps();
-      }
+      await apiFetch('/api/reps/' + id + '/connect', { method: 'POST' });
     } catch (err) {
+      hideQrModal();
       if (err.message !== 'Unauthorized') {
-        alert('Failed to connect rep: ' + err.message);
+        showToast('Failed to start connection: ' + err.message);
       }
     }
   }
 
   async function disconnectRep(id) {
     try {
-      const res = await apiFetch('/api/reps/' + id + '/disconnect', { method: 'POST' });
-      if (res.ok) {
-        await loadReps();
-      }
+      await apiFetch('/api/reps/' + id + '/disconnect', { method: 'POST' });
+      await loadReps();
     } catch (err) {
       if (err.message !== 'Unauthorized') {
-        alert('Failed to disconnect rep: ' + err.message);
+        showToast('Failed to disconnect: ' + err.message);
       }
     }
   }
@@ -637,16 +636,106 @@
     }
   }
 
-  // ── QR Modal (stubs — Plan 02 wires WebSocket events) ────────────────────
+  // ── WebSocket client ──────────────────────────────────────────────────────
+
+  let ws = null;
+  let activeQrRepId = null;
+
+  function connectWebSocket() {
+    if (ws) { ws.close(); }
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(protocol + '//' + location.host + '/ws?token=' + encodeURIComponent(token));
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'qr') {
+        handleQrEvent(msg.repId, msg.dataUrl);
+      }
+      if (msg.type === 'status') {
+        handleStatusEvent(msg.repId, msg.status);
+      }
+    };
+
+    ws.onclose = () => {
+      // Reconnect after 3 seconds if still logged in (T-05-09: 3s delay prevents tight loop)
+      if (token) {
+        setTimeout(connectWebSocket, 3000);
+      }
+    };
+
+    ws.onerror = () => {
+      // onclose will fire after onerror
+    };
+  }
+
+  // ── QR Modal ──────────────────────────────────────────────────────────────
+
+  function handleQrEvent(repId, dataUrl) {
+    // Only show QR for the rep we clicked Connect on
+    if (repId !== activeQrRepId) return;
+
+    const img = document.getElementById('qr-img');
+    const statusText = document.getElementById('qr-status');
+
+    img.src = dataUrl;
+    statusText.textContent = 'Scan this QR code with WhatsApp on the rep\'s phone';
+    document.getElementById('qr-modal').classList.add('open');
+
+    // Reset 20-second countdown on each new QR event
+    startCountdown(20);
+  }
+
+  function handleStatusEvent(repId, status) {
+    // Update the rep's status badge in the list
+    updateRepStatus(repId, status);
+
+    // If this rep just connected and the QR modal is showing for them, close it
+    if (repId === activeQrRepId && status === 'connected') {
+      hideQrModal();
+      showToast('Rep connected successfully!');
+    }
+  }
+
+  function updateRepStatus(repId, status) {
+    const card = document.getElementById('rep-' + repId);
+    if (!card) return;
+
+    // Update the status badge
+    const badge = card.querySelector('.status-badge');
+    if (badge) {
+      badge.className = 'status-badge status-' + status;
+      const dot = badge.querySelector('.status-dot');
+      if (dot) dot.className = 'status-dot';
+      const statusLabel = status === 'needs_qr' ? 'needs QR' : status;
+      badge.innerHTML = '<span class="status-dot"></span>' + escHtml(statusLabel);
+    }
+
+    // Update action buttons
+    const actions = card.querySelector('.rep-actions');
+    if (actions) {
+      const connectBtn = (status === 'disconnected' || status === 'needs_qr')
+        ? '<button class="btn btn-warning" onclick="connectRep(\'' + repId + '\')">Connect</button>'
+        : '';
+      const disconnectBtn = status === 'connected'
+        ? '<button class="btn btn-ghost" onclick="disconnectRep(\'' + repId + '\')">Disconnect</button>'
+        : '';
+      // Preserve the Remove button
+      const removeBtn = actions.querySelector('.btn-danger');
+      actions.innerHTML = connectBtn + disconnectBtn;
+      if (removeBtn) actions.appendChild(removeBtn);
+    }
+  }
 
   function showQrModal(repId) {
+    activeQrRepId = repId;
     document.getElementById('qr-modal').classList.add('open');
-    document.getElementById('qr-status').textContent = 'Waiting for QR code...';
+    document.getElementById('qr-status').textContent = 'Requesting QR code...';
     document.getElementById('qr-img').src = '';
     document.getElementById('qr-countdown').textContent = '';
   }
 
   function hideQrModal() {
+    activeQrRepId = null;
     document.getElementById('qr-modal').classList.remove('open');
     stopCountdown();
   }
@@ -655,14 +744,14 @@
     stopCountdown();
     let remaining = seconds;
     const el = document.getElementById('qr-countdown');
-    el.textContent = 'Expires in ' + remaining + 's';
+    el.textContent = remaining + 's';
     countdownTimer = setInterval(() => {
       remaining -= 1;
       if (remaining <= 0) {
         stopCountdown();
-        el.textContent = 'QR code expired';
+        el.textContent = 'Expired — waiting for new QR...';
       } else {
-        el.textContent = 'Expires in ' + remaining + 's';
+        el.textContent = remaining + 's';
       }
     }, 1000);
   }
@@ -672,6 +761,16 @@
       clearInterval(countdownTimer);
       countdownTimer = null;
     }
+  }
+
+  // ── Toast notifications ───────────────────────────────────────────────────
+
+  function showToast(message) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#333;color:#fff;padding:12px 24px;border-radius:4px;z-index:10000;font-size:14px;';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
   }
 
   // ── Utilities ─────────────────────────────────────────────────────────────
