@@ -36,6 +36,7 @@ export interface WhatsAppActivityPayload {
   direction: 'inbound' | 'outbound';
   external_whatsapp_message_id: string;
   message_markdown: string;
+  date?: string;   // ISO 8601 — activity timestamp in Close
 }
 
 /** Response from POST /activity/whatsapp_message/ */

@@ -103,6 +103,7 @@ export class MessageHandler {
           direction: 'inbound',
           external_whatsapp_message_id: waMessageId,
           message_markdown: body ?? '', // fallback empty string for Close API
+          date: timestamp.toISOString(), // forward actual message time to Close
         });
         if (activityId) {
           await pool.query(
