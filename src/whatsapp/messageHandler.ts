@@ -106,10 +106,19 @@ export class MessageHandler {
           date: timestamp.toISOString(), // forward actual message time to Close
         });
         if (activityId) {
-          await pool.query(
-            'UPDATE messages SET close_activity_id = $1 WHERE id = $2',
-            [activityId, waMessageId]
-          );
+          try {
+            await pool.query(
+              'UPDATE messages SET close_activity_id = $1 WHERE id = $2',
+              [activityId, waMessageId]
+            );
+          } catch (updateErr) {
+            // Activity IS in Close but our DB record does not reflect it.
+            // Log at error level with both IDs so ops can reconcile.
+            logger.error(
+              { repId, waMessageId, activityId, err: updateErr },
+              'Close activity posted but DB close_activity_id update failed — manual reconciliation required'
+            );
+          }
         }
       }
     } catch (err) {
