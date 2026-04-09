@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WhatsApp-Close Integration</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    /* ── Login screen ────────────────────────────────────────────────── */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .login-card {
+      background: #16213e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 40px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .login-card h1 {
+      font-size: 1.25rem;
+      margin-bottom: 24px;
+      color: #e0e0e0;
+      text-align: center;
+    }
+
+    .login-error {
+      color: #e94560;
+      font-size: 0.875rem;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    header {
+      background: #0f3460;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      font-size: 1.125rem;
+      color: #e0e0e0;
+    }
+
+    /* ── Main content ────────────────────────────────────────────────── */
+    main {
+      padding: 24px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    section {
+      margin-bottom: 32px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .section-header h2 {
+      font-size: 1rem;
+      color: #e0e0e0;
+    }
+
+    /* ── Rep cards ───────────────────────────────────────────────────── */
+    #rep-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .rep-card {
+      background: #16213e;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .rep-info {
+      flex: 1;
+      min-width: 160px;
+    }
+
+    .rep-name {
+      font-weight: 600;
+      color: #e0e0e0;
+      margin-bottom: 4px;
+    }
+
+    .rep-meta {
+      font-size: 0.8125rem;
+      color: #a0a0a0;
+    }
+
+    .rep-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* ── Status badges ───────────────────────────────────────────────── */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8125rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-connected   { background: rgba(76,175,80,0.15); color: #4caf50; }
+    .status-connected   .status-dot { background: #4caf50; }
+    .status-disconnected { background: rgba(244,67,54,0.15); color: #f44336; }
+    .status-disconnected .status-dot { background: #f44336; }
+    .status-needs_qr    { background: rgba(255,152,0,0.15); color: #ff9800; }
+    .status-needs_qr    .status-dot { background: #ff9800; }
+
+    /* ── Forms ───────────────────────────────────────────────────────── */
+    .form-panel {
+      background: #16213e;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 20px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .form-panel.visible { display: block; }
+
+    .form-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 14px;
+    }
+
+    label {
+      font-size: 0.8125rem;
+      color: #a0a0a0;
+    }
+
+    input, textarea, select {
+      background: #0d1b2a;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #e0e0e0;
+      padding: 8px 10px;
+      font-size: 0.9375rem;
+      font-family: inherit;
+      width: 100%;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #0f3460;
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    /* ── Buttons ─────────────────────────────────────────────────────── */
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-family: inherit;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { opacity: 0.85; }
+
+    .btn-primary  { background: #0f3460; color: #e0e0e0; }
+    .btn-danger   { background: #e94560; color: #fff; }
+    .btn-success  { background: #4caf50; color: #fff; }
+    .btn-warning  { background: #ff9800; color: #fff; }
+    .btn-ghost    { background: transparent; border: 1px solid #333; color: #a0a0a0; }
+
+    /* ── QR Modal ────────────────────────────────────────────────────── */
+    #qr-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.667);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #qr-modal.open { display: flex; }
+
+    .modal-box {
+      background: #16213e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 28px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .modal-box h3 { margin-bottom: 16px; color: #e0e0e0; }
+
+    #qr-img {
+      max-width: 220px;
+      width: 100%;
+      margin: 0 auto 12px;
+      display: block;
+      border-radius: 4px;
+    }
+
+    #qr-countdown {
+      color: #ff9800;
+      font-size: 0.875rem;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    #qr-status {
+      color: #a0a0a0;
+      font-size: 0.875rem;
+      margin-bottom: 16px;
+    }
+
+    /* ── Result messages ─────────────────────────────────────────────── */
+    .result-msg {
+      font-size: 0.875rem;
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .result-ok  { background: rgba(76,175,80,0.15); color: #4caf50; }
+    .result-err { background: rgba(244,67,54,0.15); color: #f44336; }
+
+    /* ── Responsive ──────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .rep-card { flex-direction: column; align-items: flex-start; }
+      .rep-actions { width: 100%; }
+      .btn { flex: 1; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Login screen ────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>WhatsApp-Close Integration</h1>
+    <p id="login-error" class="login-error">Invalid password</p>
+    <div class="form-row">
+      <label for="password-input">Password</label>
+      <input type="password" id="password-input" placeholder="Enter dashboard password" />
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="login()">Login</button>
+  </div>
+</div>
+
+<!-- ── Main app (hidden until logged in) ─────────────────────────────── -->
+<div id="app" style="display:none">
+  <header>
+    <h1>WhatsApp-Close Integration</h1>
+    <button class="btn btn-ghost" onclick="logout()">Logout</button>
+  </header>
+
+  <main>
+
+    <!-- Rep management section -->
+    <section>
+      <div class="section-header">
+        <h2>Reps</h2>
+        <button class="btn btn-primary" onclick="toggleAddRepForm()">Add Rep</button>
+      </div>
+
+      <!-- Add rep form (hidden by default) -->
+      <div class="form-panel" id="add-rep-panel">
+        <div class="form-row">
+          <label for="rep-name">Name *</label>
+          <input type="text" id="rep-name" placeholder="e.g. Jane Smith" />
+        </div>
+        <div class="form-row">
+          <label for="rep-close-id">Close User ID (optional)</label>
+          <input type="text" id="rep-close-id" placeholder="e.g. user_abc123" />
+        </div>
+        <div class="form-row">
+          <label for="rep-phone">WhatsApp Phone (optional)</label>
+          <input type="text" id="rep-phone" placeholder="e.g. +15551234567" />
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
+          <button class="btn btn-success" onclick="submitAddRep()">Save Rep</button>
+          <button class="btn btn-ghost" onclick="toggleAddRepForm()">Cancel</button>
+        </div>
+        <p id="add-rep-result" class="result-msg"></p>
+      </div>
+
+      <div id="rep-list"></div>
+    </section>
+
+    <!-- Send message section (placeholder — /api/send route added in Plan 02) -->
+    <section>
+      <div class="section-header">
+        <h2>Send Test Message</h2>
+      </div>
+      <div class="form-panel visible">
+        <div class="form-row">
+          <label for="send-rep">Rep</label>
+          <select id="send-rep">
+            <option value="">Select a rep...</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="send-phone">Recipient Phone</label>
+          <input type="text" id="send-phone" placeholder="e.g. +15551234567" />
+        </div>
+        <div class="form-row">
+          <label for="send-message">Message</label>
+          <textarea id="send-message" placeholder="Your message..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+        <p id="send-result" class="result-msg"></p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ── QR Modal (wired by Plan 02 WebSocket handler) ─────────────────── -->
+<div id="qr-modal">
+  <div class="modal-box">
+    <h3>Scan QR Code</h3>
+    <img id="qr-img" src="" alt="QR Code" />
+    <span id="qr-countdown"></span>
+    <p id="qr-status">Waiting for scan...</p>
+    <button class="btn btn-ghost" onclick="hideQrModal()">Close</button>
+  </div>
+</div>
+
+<script>
+  'use strict';
+
+  const API_BASE = '';
+  let token = localStorage.getItem('token') || '';
+  let countdownTimer = null;
+
+  // ── API helper ────────────────────────────────────────────────────────────
+
+  async function apiFetch(path, options = {}) {
+    const res = await fetch(API_BASE + path, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        ...(options.headers || {}),
+      },
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      document.getElementById('login-screen').style.display = '';
+      document.getElementById('app').style.display = 'none';
+      throw new Error('Unauthorized');
+    }
+    return res;
+  }
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  async function login() {
+    const input = document.getElementById('password-input');
+    const errEl = document.getElementById('login-error');
+    const pw = input.value.trim();
+    if (!pw) return;
+
+    token = pw;
+    try {
+      const res = await fetch(API_BASE + '/api/reps', {
+        headers: { 'Authorization': 'Bearer ' + token },
+      });
+      if (res.ok) {
+        localStorage.setItem('token', token);
+        errEl.style.display = 'none';
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app').style.display = '';
+        await loadReps();
+      } else {
+        errEl.style.display = '';
+        token = localStorage.getItem('token') || '';
+      }
+    } catch (err) {
+      errEl.style.display = '';
+      token = localStorage.getItem('token') || '';
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    token = '';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-screen').style.display = '';
+    document.getElementById('password-input').value = '';
+  }
+
+  // Auto-login on page load if token is stored
+  window.addEventListener('DOMContentLoaded', async () => {
+    if (token) {
+      try {
+        const res = await fetch(API_BASE + '/api/reps', {
+          headers: { 'Authorization': 'Bearer ' + token },
+        });
+        if (res.ok) {
+          document.getElementById('login-screen').style.display = 'none';
+          document.getElementById('app').style.display = '';
+          await loadReps();
+        } else {
+          localStorage.removeItem('token');
+          token = '';
+        }
+      } catch (_) {
+        // Network error — stay on login
+      }
+    }
+  });
+
+  // Allow pressing Enter in password field
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
+      login();
+    }
+  });
+
+  // ── Reps ──────────────────────────────────────────────────────────────────
+
+  async function loadReps() {
+    try {
+      const res = await apiFetch('/api/reps');
+      const reps = await res.json();
+      renderRepList(reps);
+      populateSendRepDropdown(reps);
+    } catch (err) {
+      if (err.message !== 'Unauthorized') {
+        console.error('Failed to load reps', err);
+      }
+    }
+  }
+
+  function renderRepList(reps) {
+    const container = document.getElementById('rep-list');
+    if (!reps.length) {
+      container.innerHTML = '<p style="color:#a0a0a0;font-size:0.875rem">No reps yet. Add one above.</p>';
+      return;
+    }
+
+    container.innerHTML = reps.map((rep) => {
+      const statusClass = 'status-' + rep.status;
+      const statusLabel = rep.status === 'needs_qr' ? 'needs QR' : rep.status;
+
+      const connectBtn = (rep.status === 'disconnected' || rep.status === 'needs_qr')
+        ? `<button class="btn btn-warning" onclick="connectRep('${rep.id}')">Connect</button>`
+        : '';
+      const disconnectBtn = rep.status === 'connected'
+        ? `<button class="btn btn-ghost" onclick="disconnectRep('${rep.id}')">Disconnect</button>`
+        : '';
+
+      return `
+        <div class="rep-card" id="rep-${rep.id}">
+          <div class="rep-info">
+            <div class="rep-name">${escHtml(rep.name)}</div>
+            <div class="rep-meta">
+              ${rep.wa_phone ? 'WA: ' + escHtml(rep.wa_phone) + ' &nbsp;' : ''}
+              ${rep.close_user_id ? 'Close: ' + escHtml(rep.close_user_id) : ''}
+            </div>
+          </div>
+          <span class="status-badge ${statusClass}">
+            <span class="status-dot"></span>${escHtml(statusLabel)}
+          </span>
+          <div class="rep-actions">
+            ${connectBtn}
+            ${disconnectBtn}
+            <button class="btn btn-danger" onclick="removeRep('${rep.id}', '${escHtml(rep.name)}')">Remove</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function populateSendRepDropdown(reps) {
+    const sel = document.getElementById('send-rep');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Select a rep...</option>' +
+      reps.map((r) => `<option value="${r.id}"${r.id === current ? ' selected' : ''}>${escHtml(r.name)}</option>`).join('');
+  }
+
+  function toggleAddRepForm() {
+    const panel = document.getElementById('add-rep-panel');
+    panel.classList.toggle('visible');
+    if (panel.classList.contains('visible')) {
+      document.getElementById('rep-name').focus();
+    }
+    clearResult('add-rep-result');
+  }
+
+  async function submitAddRep() {
+    const name = document.getElementById('rep-name').value.trim();
+    const closeUserId = document.getElementById('rep-close-id').value.trim();
+    const waPhone = document.getElementById('rep-phone').value.trim();
+
+    if (!name) {
+      showResult('add-rep-result', 'Name is required.', false);
+      return;
+    }
+
+    try {
+      await addRep(name, closeUserId || null, waPhone || null);
+      document.getElementById('rep-name').value = '';
+      document.getElementById('rep-close-id').value = '';
+      document.getElementById('rep-phone').value = '';
+      document.getElementById('add-rep-panel').classList.remove('visible');
+      await loadReps();
+    } catch (err) {
+      if (err.message !== 'Unauthorized') {
+        showResult('add-rep-result', 'Failed to add rep: ' + err.message, false);
+      }
+    }
+  }
+
+  async function addRep(name, closeUserId, waPhone) {
+    const res = await apiFetch('/api/reps', {
+      method: 'POST',
+      body: JSON.stringify({ name, close_user_id: closeUserId, wa_phone: waPhone }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || res.statusText);
+    }
+    return res.json();
+  }
+
+  async function removeRep(id, name) {
+    if (!confirm('Remove rep "' + name + '"? Their WhatsApp session will be logged out.')) return;
+    try {
+      await apiFetch('/api/reps/' + id, { method: 'DELETE' });
+      await loadReps();
+    } catch (err) {
+      if (err.message !== 'Unauthorized') {
+        alert('Failed to remove rep: ' + err.message);
+      }
+    }
+  }
+
+  async function connectRep(id) {
+    try {
+      const res = await apiFetch('/api/reps/' + id + '/connect', { method: 'POST' });
+      if (res.ok) {
+        showQrModal(id);
+        await loadReps();
+      }
+    } catch (err) {
+      if (err.message !== 'Unauthorized') {
+        alert('Failed to connect rep: ' + err.message);
+      }
+    }
+  }
+
+  async function disconnectRep(id) {
+    try {
+      const res = await apiFetch('/api/reps/' + id + '/disconnect', { method: 'POST' });
+      if (res.ok) {
+        await loadReps();
+      }
+    } catch (err) {
+      if (err.message !== 'Unauthorized') {
+        alert('Failed to disconnect rep: ' + err.message);
+      }
+    }
+  }
+
+  // ── Send message ──────────────────────────────────────────────────────────
+
+  async function sendMessage() {
+    const repId = document.getElementById('send-rep').value;
+    const phone = document.getElementById('send-phone').value.trim();
+    const message = document.getElementById('send-message').value.trim();
+    const resultEl = document.getElementById('send-result');
+
+    if (!repId || !phone || !message) {
+      showResult('send-result', 'All fields are required.', false);
+      return;
+    }
+
+    try {
+      const res = await apiFetch('/api/send', {
+        method: 'POST',
+        body: JSON.stringify({ repId, phone, message }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        showResult('send-result', 'Message sent!', true);
+        document.getElementById('send-message').value = '';
+      } else {
+        showResult('send-result', 'Error: ' + (body.error || res.statusText), false);
+      }
+    } catch (err) {
+      if (err.message !== 'Unauthorized') {
+        showResult('send-result', 'Network error: ' + err.message, false);
+      }
+    }
+  }
+
+  // ── QR Modal (stubs — Plan 02 wires WebSocket events) ────────────────────
+
+  function showQrModal(repId) {
+    document.getElementById('qr-modal').classList.add('open');
+    document.getElementById('qr-status').textContent = 'Waiting for QR code...';
+    document.getElementById('qr-img').src = '';
+    document.getElementById('qr-countdown').textContent = '';
+  }
+
+  function hideQrModal() {
+    document.getElementById('qr-modal').classList.remove('open');
+    stopCountdown();
+  }
+
+  function startCountdown(seconds) {
+    stopCountdown();
+    let remaining = seconds;
+    const el = document.getElementById('qr-countdown');
+    el.textContent = 'Expires in ' + remaining + 's';
+    countdownTimer = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        stopCountdown();
+        el.textContent = 'QR code expired';
+      } else {
+        el.textContent = 'Expires in ' + remaining + 's';
+      }
+    }, 1000);
+  }
+
+  function stopCountdown() {
+    if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+  }
+
+  // ── Utilities ─────────────────────────────────────────────────────────────
+
+  function escHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function showResult(elId, msg, ok) {
+    const el = document.getElementById(elId);
+    el.textContent = msg;
+    el.className = 'result-msg ' + (ok ? 'result-ok' : 'result-err');
+    el.style.display = '';
+  }
+
+  function clearResult(elId) {
+    const el = document.getElementById(elId);
+    el.style.display = 'none';
+    el.textContent = '';
+  }
+</script>
+</body>
+</html>

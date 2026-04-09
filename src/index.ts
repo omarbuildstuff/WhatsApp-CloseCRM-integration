@@ -1,8 +1,10 @@
+import * as http from 'http';
 import express from 'express';
 import { pool } from './db/pool';
 import { sessionManager } from './whatsapp/sessionManager';
 import { messageHandler } from './whatsapp/messageHandler';
 import { handleCloseWebhook } from './close/webhookHandler';
+import { createDashboardRouter } from './dashboard';
 import { config } from './config';
 import pino from 'pino';
 
@@ -44,12 +46,18 @@ async function main() {
     res.json({ status: 'ok' });
   });
 
-  app.listen(config.port, () => {
+  // Dashboard router (GET /, /api/*) — mounted after express.json()
+  app.use(createDashboardRouter());
+
+  const server = http.createServer(app);
+  server.listen(config.port, () => {
     logger.info({ port: config.port }, 'Server started');
   });
+
+  return server;
 }
 
-main().catch((err) => {
+export const server = main().catch((err) => {
   console.error('Startup failed:', err);
   process.exit(1);
 });
