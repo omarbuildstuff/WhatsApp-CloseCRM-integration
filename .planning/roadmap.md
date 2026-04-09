@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - PostgreSQL schema, auth state persistence, and SessionManager with correct reconnect logic (completed 2026-04-09)
 - [x] **Phase 2: Close API Client** - CloseApiClient with retry, PhoneCache with 1-hour TTL, and E.164 phone normalization (completed 2026-04-09)
 - [x] **Phase 3: Inbound Sync** - WhatsApp messages flow into PostgreSQL and appear in Close lead timelines as native activities (completed 2026-04-09)
-- [ ] **Phase 4: Outbound Sync** - Close webhook triggers WhatsApp send with mandatory loop guard in place from day one
+- [x] **Phase 4: Outbound Sync** - Close webhook triggers WhatsApp send with mandatory loop guard in place from day one (completed 2026-04-09)
 - [ ] **Phase 5: Dashboard and API** - Web dashboard, QR WebSocket streaming, and Bearer-authenticated REST API surface all prior work
 
 ## Phase Details
@@ -72,7 +72,11 @@ Plans:
   2. A webhook from Close for an activity the integration itself created is detected via external_whatsapp_message_id and silently dropped — no second send occurs
   3. The Close webhook endpoint is reachable and returns 200 for valid payloads
   4. After a successful outbound send, the Close activity is updated with the WhatsApp message ID and the message is stored in PostgreSQL
-**Plans**: TBD
+**Plans:** 2/2 plans complete
+
+Plans:
+- [x] 04-01-PLAN.md — Webhook handler core: config, types, CloseApiClient extensions, and webhookHandler with HMAC, loop guard, send, persist, patch
+- [x] 04-02-PLAN.md — Express route wiring and human verification checkpoint
 
 ### Phase 5: Dashboard and API
 **Goal**: Any team member can connect a rep's WhatsApp, view all connection statuses, and send a test message through a browser — with all endpoints protected
@@ -96,5 +100,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Foundation | 2/2 | Complete    | 2026-04-09 |
 | 2. Close API Client | 2/2 | Complete    | 2026-04-09 |
 | 3. Inbound Sync | 1/1 | Complete    | 2026-04-09 |
-| 4. Outbound Sync | 0/? | Not started | - |
+| 4. Outbound Sync | 2/2 | Complete    | 2026-04-09 |
 | 5. Dashboard and API | 0/? | Not started | - |
