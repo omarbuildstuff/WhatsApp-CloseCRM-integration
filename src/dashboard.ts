@@ -217,7 +217,13 @@ export function createDashboardRouter(): express.Router {
   // Baileys will emit 'qr' events which are broadcast via WebSocket
   apiRouter.post('/reps/:id/connect', async (req, res) => {
     try {
-      await sessionManager.connect(req.params.id);
+      const repId = req.params.id;
+      const { rowCount } = await pool.query('SELECT 1 FROM reps WHERE id = $1', [repId]);
+      if (!rowCount) {
+        res.status(404).json({ error: 'Rep not found' });
+        return;
+      }
+      await sessionManager.connect(repId);
       res.json({ ok: true });
     } catch (err) {
       logger.error({ repId: req.params.id, err }, 'POST /api/reps/:id/connect failed');
@@ -228,7 +234,13 @@ export function createDashboardRouter(): express.Router {
   // POST /api/reps/:id/disconnect — disconnect a rep session
   apiRouter.post('/reps/:id/disconnect', async (req, res) => {
     try {
-      await sessionManager.disconnect(req.params.id);
+      const repId = req.params.id;
+      const { rowCount } = await pool.query('SELECT 1 FROM reps WHERE id = $1', [repId]);
+      if (!rowCount) {
+        res.status(404).json({ error: 'Rep not found' });
+        return;
+      }
+      await sessionManager.disconnect(repId);
       res.json({ ok: true });
     } catch (err) {
       logger.error({ repId: req.params.id, err }, 'POST /api/reps/:id/disconnect failed');
