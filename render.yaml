@@ -2,12 +2,10 @@ services:
   - type: web
     name: wa-close-integration
     runtime: node
-    buildCommand: npm install && npm run build && npm run db:init
-    startCommand: npm start
+    buildCommand: npm install --include=dev && npm run build && npm run db:init
+    startCommand: NODE_ENV=production npm start
     healthCheckPath: /health
     envVars:
-      - key: NODE_ENV
-        value: production
       - key: DATABASE_URL
         sync: false
       - key: CLOSE_API_KEY
