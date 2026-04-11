@@ -7,7 +7,7 @@ export async function createSchema(): Promise<void> {
       name TEXT NOT NULL,
       close_user_id TEXT,
       wa_phone TEXT,
-      status TEXT NOT NULL DEFAULT 'disconnected',
+      status TEXT NOT NULL DEFAULT 'needs_qr',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
@@ -53,6 +53,14 @@ export async function createSchema(): Promise<void> {
       lead_id TEXT,
       lead_name TEXT,
       cached_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lid_phone_map (
+      lid TEXT PRIMARY KEY,
+      phone_e164 TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
 }

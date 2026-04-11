@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: wa-close-integration
+    runtime: node
+    buildCommand: npm install && npm run build && npm run db:init
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: CLOSE_API_KEY
+        sync: false
+      - key: CLOSE_WEBHOOK_SECRET
+        sync: false
+      - key: DASHBOARD_PASSWORD
+        sync: false
+      - key: PORT
+        value: 10000

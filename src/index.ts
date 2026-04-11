@@ -15,16 +15,16 @@ async function main() {
   await pool.query('SELECT 1');
   logger.info('Database connected');
 
-  // Restore all rep sessions from DB
-  await sessionManager.resumeAll();
-  logger.info('Sessions restored');
-
-  // Wire inbound message handler
+  // Wire inbound message handler BEFORE resuming sessions
+  // to avoid dropping messages that arrive during reconnection
   sessionManager.on('message', ({ repId, msg }) => {
-    // handle() catches and logs all processing errors internally
     void messageHandler.handle(repId, msg);
   });
   logger.info('Message handler wired');
+
+  // Restore all rep sessions from DB
+  await sessionManager.resumeAll();
+  logger.info('Sessions restored');
 
   const app = express();
 

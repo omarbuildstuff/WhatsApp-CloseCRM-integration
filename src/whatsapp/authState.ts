@@ -12,9 +12,14 @@ export async function usePgAuthState(
     'SELECT creds FROM wa_auth_creds WHERE rep_id = $1',
     [repId]
   );
-  const creds = credsRow.rows[0]
-    ? JSON.parse(JSON.stringify(credsRow.rows[0].creds), BufferJSON.reviver)
-    : initAuthCreds();
+  let creds;
+  if (credsRow.rows[0]) {
+    creds = JSON.parse(JSON.stringify(credsRow.rows[0].creds), BufferJSON.reviver);
+    if (logger) logger.info({ repId, hasMe: !!creds.me }, 'Loaded existing creds from DB');
+  } else {
+    creds = initAuthCreds();
+    if (logger) logger.info({ repId }, 'No existing creds — initialized fresh');
+  }
 
   // 2. Build raw SignalKeyStore (reads/writes wa_auth_keys)
   const rawStore = {

@@ -86,6 +86,32 @@ export class CloseApiClient {
     }
   }
 
+  /**
+   * Find the contact_id on a lead whose phone matches remotePhone.
+   * Falls back to the first contact if no exact phone match.
+   */
+  async findContactId(leadId: string, remotePhone: string): Promise<string | null> {
+    try {
+      const res = await this.http.get<CloseLead>(`/lead/${leadId}/`, {
+        params: { _fields: 'contacts' },
+      });
+      const contacts = res.data?.contacts ?? [];
+      const targetDigits = remotePhone.replace(/\D/g, '');
+      for (const contact of contacts) {
+        for (const phone of contact.phones) {
+          if (phone.phone.replace(/\D/g, '') === targetDigits) {
+            return contact.id;
+          }
+        }
+      }
+      // Fallback: lead was matched by phone, first contact is likely correct
+      return contacts[0]?.id ?? null;
+    } catch (err) {
+      logger.error({ leadId, remotePhone, err }, 'Failed to find contact ID');
+      return null;
+    }
+  }
+
   async getLeadContacts(leadId: string): Promise<string | null> {
     try {
       const res = await this.http.get<CloseLead>(`/lead/${leadId}/`, {

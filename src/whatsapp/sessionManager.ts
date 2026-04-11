@@ -1,8 +1,9 @@
 import { EventEmitter } from 'events';
-import makeWASocket, { DisconnectReason } from '@whiskeysockets/baileys';
-import type { WASocket } from '@whiskeysockets/baileys';
+import makeWASocket, { DisconnectReason, Browsers, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
+import type { WASocket, Contact } from '@whiskeysockets/baileys';
 import type { Boom } from '@hapi/boom';
 import { usePgAuthState } from './authState';
+import { normalizeJidToE164, storeLidMapping } from '../close/normalizeJid';
 import { pool } from '../db/pool';
 import pino from 'pino';
 
@@ -23,6 +24,14 @@ export class SessionManager extends EventEmitter {
   private logger = pino({ level: 'info' });
 
   async connect(repId: string): Promise<void> {
+    // Clear any pending reconnect timer to prevent stale timers from killing the new socket
+    const pendingTimer = this.reconnectTimers.get(repId);
+    if (pendingTimer) {
+      clearTimeout(pendingTimer);
+      this.reconnectTimers.delete(repId);
+    }
+    this.reconnectAttempts.delete(repId);
+
     // Close existing socket if any
     const existing = this.sessions.get(repId);
     if (existing) {
@@ -32,26 +41,52 @@ export class SessionManager extends EventEmitter {
 
     const { state, saveCreds } = await usePgAuthState(repId, this.logger);
 
+    let version: [number, number, number] | undefined;
+    try {
+      const result = await fetchLatestBaileysVersion();
+      version = result.version;
+      this.logger.info({ repId, version }, 'Fetched WA version');
+    } catch (err) {
+      this.logger.warn({ repId, err }, 'Failed to fetch WA version — using bundled default');
+    }
+
     const sock = makeWASocket({
       auth: state,
       logger: this.logger.child({ repId }),
-      printQRInTerminal: false,
+      browser: Browsers.ubuntu('WA-Close'),
+      ...(version ? { version } : {}),
     });
 
     const handleConnectionUpdate = async (update: { connection?: string; lastDisconnect?: { error: Error | undefined }; qr?: string }) => {
       const { connection, lastDisconnect, qr } = update;
 
+      this.logger.info(
+        { repId, connection, hasQr: !!qr, updateKeys: Object.keys(update) },
+        'connection.update received'
+      );
+
       if (qr) {
+        this.logger.info({ repId, qrLength: qr.length }, 'QR received from Baileys — emitting');
         this.emit('qr', { repId, qr });
       }
 
       if (connection === 'open') {
+        this.logger.info({ repId }, 'Connection opened — marking as connected');
         this.reconnectAttempts.delete(repId);
         await pool.query("UPDATE reps SET status = 'connected' WHERE id = $1", [repId]);
         this.emit('status', { repId, status: 'connected' });
+
+        // Bootstrap lid→phone mappings from known phone JIDs.
+        // sock.onWhatsApp(phone) returns both the phone JID and the lid,
+        // letting us map future inbound @lid messages to E.164 phone numbers.
+        this.bootstrapLidMappings(repId, sock).catch((err) => {
+          this.logger.error({ repId, err }, 'lid bootstrap failed — non-fatal');
+        });
       }
 
       if (connection === 'close') {
+        const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+        this.logger.info({ repId, statusCode, error: lastDisconnect?.error?.message }, 'Connection closed');
         await this.handleReconnect(repId, lastDisconnect);
       }
     };
@@ -65,14 +100,36 @@ export class SessionManager extends EventEmitter {
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('messages.upsert', ({ messages, type }) => {
+      this.logger.info({ repId, type, count: messages.length }, 'messages.upsert received');
       if (type === 'notify') {
         for (const msg of messages) {
+          this.logger.info({ repId, msgId: msg.key.id, from: msg.key.remoteJid, fromMe: msg.key.fromMe }, 'Emitting message event');
           this.emit('message', { repId, msg });
         }
       }
     });
 
+    // Populate lid→phone mapping from Baileys contact sync.
+    // When WhatsApp pushes contact info, entries may contain both the
+    // phone-based JID (contact.id = "phone@s.whatsapp.net") and the
+    // linked-device JID (contact.lid = "xxx@lid"). Storing this mapping
+    // allows resolveJidToE164() to handle inbound @lid messages.
+    sock.ev.on('contacts.upsert', (contacts: Contact[]) => {
+      for (const contact of contacts) {
+        const lid = contact.lid;
+        if (contact.id?.endsWith('@s.whatsapp.net') && lid?.endsWith('@lid')) {
+          const phoneE164 = normalizeJidToE164(contact.id);
+          if (phoneE164) {
+            storeLidMapping(lid, phoneE164).catch((err) => {
+              this.logger.error({ err, lid }, 'Failed to store lid→phone mapping');
+            });
+          }
+        }
+      }
+    });
+
     this.sessions.set(repId, sock);
+    this.logger.info({ repId }, 'Session created, listeners registered');
   }
 
   private async handleReconnect(
@@ -169,6 +226,75 @@ export class SessionManager extends EventEmitter {
   private async clearAuthState(repId: string): Promise<void> {
     await pool.query('DELETE FROM wa_auth_keys WHERE rep_id = $1', [repId]);
     await pool.query('DELETE FROM wa_auth_creds WHERE rep_id = $1', [repId]);
+  }
+
+  /**
+   * Bootstrap lid→phone mappings by calling onWhatsApp() for known phone JIDs.
+   * Runs once after each connection open. Non-fatal on failure.
+   */
+  private async bootstrapLidMappings(repId: string, sock: WASocket): Promise<void> {
+    const { rows } = await pool.query<{ phone_e164: string }>(
+      `SELECT DISTINCT phone_e164 FROM messages
+       WHERE rep_id = $1 AND phone_e164 IS NOT NULL
+       LIMIT 200`,
+      [repId]
+    );
+    if (rows.length === 0) return;
+
+    this.logger.info({ repId, phoneCount: rows.length }, 'Bootstrapping lid mappings from known phones');
+
+    // Batch into groups of 20 to avoid overloading WhatsApp
+    const batchSize = 20;
+    let mapped = 0;
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize);
+      const jids = batch.map(r => r.phone_e164.replace('+', '') + '@s.whatsapp.net');
+      try {
+        const results = await (sock as any).onWhatsApp(...jids);
+        if (Array.isArray(results)) {
+          for (const entry of results) {
+            if (entry.lid && entry.jid) {
+              const phoneE164 = normalizeJidToE164(entry.jid);
+              if (phoneE164) {
+                await storeLidMapping(entry.lid, phoneE164);
+                mapped++;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        this.logger.warn({ repId, err }, 'onWhatsApp batch failed — continuing');
+      }
+    }
+    this.logger.info({ repId, mapped, total: rows.length }, 'lid bootstrap complete');
+  }
+
+  /**
+   * Resolve an @lid JID to E.164 by querying the live Baileys socket.
+   * Called as a fallback when lid_phone_map has no entry.
+   * Returns null if resolution fails or no session is active.
+   */
+  async resolveLidJid(repId: string, lidJid: string): Promise<string | null> {
+    const sock = this.sessions.get(repId);
+    if (!sock) return null;
+
+    try {
+      // Use onWhatsApp with the lid JID — some Baileys versions support this
+      const results = await (sock as any).onWhatsApp(lidJid);
+      if (Array.isArray(results) && results.length > 0) {
+        const entry = results[0];
+        if (entry.jid) {
+          const phoneE164 = normalizeJidToE164(entry.jid);
+          if (phoneE164) {
+            await storeLidMapping(lidJid, phoneE164);
+            return phoneE164;
+          }
+        }
+      }
+    } catch (err) {
+      this.logger.debug({ repId, lidJid, err }, 'Live lid resolution failed');
+    }
+    return null;
   }
 
   getSession(repId: string): WASocket | undefined {

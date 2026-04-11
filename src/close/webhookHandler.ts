@@ -114,8 +114,8 @@ export async function handleCloseWebhook(req: Request, res: Response): Promise<v
   }
 
   // ── Step 4: Direction filter ───────────────────────────────────────────────
-  if (data.direction !== 'outbound') {
-    logger.debug({ activityId: data.id, direction: data.direction }, 'Dropping non-outbound activity');
+  if (data.direction !== 'outgoing') {
+    logger.debug({ activityId: data.id, direction: data.direction }, 'Dropping non-outgoing activity');
     res.status(200).json({ ok: true });
     return;
   }

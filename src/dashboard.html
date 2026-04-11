@@ -583,10 +583,14 @@
   }
 
   async function connectRep(id) {
+    console.log('[QR] connectRep called for:', id);
     showQrModal(id);
+    console.log('[QR] Modal shown, activeQrRepId:', activeQrRepId);
     try {
-      await apiFetch('/api/reps/' + id + '/connect', { method: 'POST' });
+      const res = await apiFetch('/api/reps/' + id + '/connect', { method: 'POST' });
+      console.log('[QR] Connect API responded:', res.status);
     } catch (err) {
+      console.error('[QR] Connect API failed:', err);
       hideQrModal();
       if (err.message !== 'Unauthorized') {
         showToast('Failed to start connection: ' + err.message);
@@ -647,13 +651,19 @@
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(protocol + '//' + location.host + '/ws?token=' + encodeURIComponent(token));
 
+    ws.onopen = () => {
+      console.log('[WS] Connected');
+    };
+
     ws.onmessage = (event) => {
       let msg;
       try {
         msg = JSON.parse(event.data);
       } catch (_) {
-        return; // ignore non-JSON frames
+        console.warn('[WS] Received non-JSON frame:', event.data);
+        return;
       }
+      console.log('[WS] Received:', msg.type, msg.repId, msg);
       if (msg.type === 'qr') {
         handleQrEvent(msg.repId, msg.dataUrl);
       }
@@ -662,23 +672,28 @@
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       // Reconnect after 3 seconds if still logged in (T-05-09: 3s delay prevents tight loop)
+      console.warn('[WS] Closed, code:', event.code, 'reason:', event.reason);
       if (token) {
         setTimeout(connectWebSocket, 3000);
       }
     };
 
-    ws.onerror = () => {
-      // onclose will fire after onerror
+    ws.onerror = (err) => {
+      console.error('[WS] Error:', err);
     };
   }
 
   // ── QR Modal ──────────────────────────────────────────────────────────────
 
   function handleQrEvent(repId, dataUrl) {
+    console.log('[QR] handleQrEvent:', repId, 'activeQrRepId:', activeQrRepId, 'match:', repId === activeQrRepId);
     // Only show QR for the rep we clicked Connect on
-    if (repId !== activeQrRepId) return;
+    if (repId !== activeQrRepId) {
+      console.warn('[QR] Ignoring QR for non-active rep:', repId);
+      return;
+    }
 
     const img = document.getElementById('qr-img');
     const statusText = document.getElementById('qr-status');
@@ -686,6 +701,7 @@
     img.src = dataUrl;
     statusText.textContent = 'Scan this QR code with WhatsApp on the rep\'s phone';
     document.getElementById('qr-modal').classList.add('open');
+    console.log('[QR] QR image set, modal opened');
 
     // Reset 20-second countdown on each new QR event
     startCountdown(20);

@@ -33,10 +33,13 @@ export interface CloseLeadListResponse {
 /** Payload for POST /activity/whatsapp_message/ */
 export interface WhatsAppActivityPayload {
   lead_id: string;
-  direction: 'inbound' | 'outbound';
+  contact_id: string;
+  direction: 'incoming' | 'outgoing';
   external_whatsapp_message_id: string;
+  local_phone: string;
+  remote_phone: string;
   message_markdown: string;
-  date?: string;   // ISO 8601 — activity timestamp in Close
+  activity_at?: string;   // ISO 8601 — activity timestamp in Close
 }
 
 /** Response from POST /activity/whatsapp_message/ */
@@ -62,7 +65,7 @@ export interface CloseWebhookActivityData {
   id: string;                                // Close activity ID (actwh_xxx)
   lead_id: string;                           // Close lead ID
   user_id: string;                           // Close user who created activity
-  direction: 'inbound' | 'outbound';
+  direction: 'incoming' | 'outgoing';
   message_markdown: string;
   external_whatsapp_message_id: string | null;
   date_created: string;

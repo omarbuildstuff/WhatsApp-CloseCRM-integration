@@ -75,8 +75,10 @@ export function setupWebSocket(server: http.Server): void {
 
   // Wire SessionManager 'qr' events → convert to PNG data URL → broadcast (T-05-08)
   sessionManager.on('qr', async ({ repId, qr }: { repId: string; qr: string }) => {
+    logger.info({ repId, qrLength: qr.length }, 'QR event received from sessionManager');
     try {
       const dataUrl = await toDataURL(qr);
+      logger.info({ repId, clientCount: wss.clients.size }, 'Broadcasting QR to WS clients');
       broadcast(wss, { type: 'qr', repId, dataUrl });
     } catch (err) {
       logger.error({ repId, err }, 'Failed to generate QR data URL');
@@ -85,6 +87,7 @@ export function setupWebSocket(server: http.Server): void {
 
   // Wire SessionManager 'status' events → broadcast
   sessionManager.on('status', ({ repId, status }: { repId: string; status: string }) => {
+    logger.info({ repId, status, clientCount: wss.clients.size }, 'Broadcasting status update');
     broadcast(wss, { type: 'status', repId, status });
   });
 
@@ -177,11 +180,12 @@ export function createDashboardRouter(): express.Router {
       }
 
       const { rows } = await pool.query(
-        'INSERT INTO reps (name, close_user_id, wa_phone) VALUES ($1, $2, $3) RETURNING *',
+        'INSERT INTO reps (name, close_user_id, wa_phone, status) VALUES ($1, $2, $3, $4) RETURNING *',
         [
           name.trim(),
           close_user_id && typeof close_user_id === 'string' ? close_user_id.trim() || null : null,
           wa_phone && typeof wa_phone === 'string' ? wa_phone.trim() || null : null,
+          'needs_qr',
         ]
       );
 
@@ -207,7 +211,10 @@ export function createDashboardRouter(): express.Router {
       // Step 1: Logout Baileys session BEFORE deleting the DB row
       await sessionManager.logout(repId);
 
-      // Step 2: Delete rep row after session is cleaned up
+      // Step 2: Delete messages referencing this rep (FK constraint)
+      await pool.query('DELETE FROM messages WHERE rep_id = $1', [repId]);
+
+      // Step 3: Delete rep row after session and messages are cleaned up
       await pool.query('DELETE FROM reps WHERE id = $1', [repId]);
 
       logger.info({ repId }, 'Rep deleted');
@@ -229,6 +236,7 @@ export function createDashboardRouter(): express.Router {
         return;
       }
       await sessionManager.connect(repId);
+      logger.info({ repId }, 'Connect initiated — QR events via WebSocket');
       res.json({ ok: true });
     } catch (err) {
       logger.error({ repId: req.params.id, err }, 'POST /api/reps/:id/connect failed');

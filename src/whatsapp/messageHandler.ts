@@ -1,7 +1,9 @@
 import type { proto } from '@whiskeysockets/baileys';
-import { normalizeJidToE164 } from '../close/normalizeJid';
+import { jidDecode } from '@whiskeysockets/baileys';
+import { resolveJidToE164 } from '../close/normalizeJid';
 import { phoneCache } from '../close/phoneCache';
 import { closeClient } from '../close/client';
+import { sessionManager } from './sessionManager';
 import { pool } from '../db/pool';
 import pino from 'pino';
 
@@ -64,24 +66,38 @@ export class MessageHandler {
    */
   async handle(repId: string, msg: proto.IWebMessageInfo): Promise<void> {
     // Step 1: FILTER CHAIN — return early, no side effects
-    if (!msg.key.remoteJid) return;
-    if (msg.key.remoteJid.endsWith('@g.us')) return; // skip groups
-    if (msg.key.fromMe) return;                       // skip outbound
-    if (!msg.message) return;                          // skip system stubs
-    if (!msg.key.id) return;                           // skip messages with no dedup key
+    if (!msg.key.remoteJid) { logger.debug({ repId }, 'Filtered: no remoteJid'); return; }
+    if (msg.key.remoteJid.endsWith('@g.us')) { logger.debug({ repId, jid: msg.key.remoteJid }, 'Filtered: group message'); return; }
+    if (!msg.message) { logger.debug({ repId, msgId: msg.key.id }, 'Filtered: no message content'); return; }
+    if (!msg.key.id) { logger.debug({ repId }, 'Filtered: no message id'); return; }
 
     // Step 2: EXTRACT
     const jid = msg.key.remoteJid;
     const waMessageId = msg.key.id;
     const body = extractBody(msg);
     const mediaType = detectMediaType(msg);
-    const e164 = normalizeJidToE164(jid);
+    let e164 = await resolveJidToE164(jid);  // async — handles @lid via DB lookup
+    // Fallback: if @lid JID wasn't in lid_phone_map, try live resolution via Baileys socket
+    if (!e164) {
+      const decoded = jidDecode(jid);
+      if (decoded?.server === 'lid') {
+        e164 = await sessionManager.resolveLidJid(repId, jid);
+        if (e164) {
+          logger.info({ repId, jid, e164 }, 'Resolved @lid JID via live Baileys query');
+        }
+      }
+    }
+    const isFromMe = !!msg.key.fromMe;
+    const dbDirection = isFromMe ? 'outgoing' : 'incoming';
+    const closeDirection: 'incoming' | 'outgoing' = isFromMe ? 'outgoing' : 'incoming';
     const tsSec = msg.messageTimestamp
       ? (typeof msg.messageTimestamp === 'number'
           ? msg.messageTimestamp
           : msg.messageTimestamp.toNumber())   // Long has .toNumber()
       : 0;
     const timestamp = new Date(tsSec * 1000); // PITFALL: seconds, not ms!
+
+    logger.info({ repId, waMessageId, jid, e164, body: body?.substring(0, 50) }, 'Message passed filters — persisting');
 
     try {
       // Step 3: LEAD LOOKUP
@@ -90,33 +106,57 @@ export class MessageHandler {
       // Step 4: PERSIST TO DB — ALWAYS, regardless of lead match (SYNC-03)
       const result = await pool.query(
         `INSERT INTO messages (id, rep_id, direction, wa_jid, phone_e164, lead_id, body, media_type, timestamp)
-         VALUES ($1, $2, 'inbound', $3, $4, $5, $6, $7, $8)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (id) DO NOTHING`,
-        [waMessageId, repId, jid, e164 ?? null, lead?.leadId ?? null, body, mediaType, timestamp]
+        [waMessageId, repId, dbDirection, jid, e164 ?? null, lead?.leadId ?? null, body, mediaType, timestamp]
       );
       const inserted = (result.rowCount ?? 0) > 0;
 
       // Step 5: SYNC TO CLOSE — only if lead matched AND row was inserted (not a duplicate)
-      if (lead && inserted) {
-        const activityId = await closeClient.postWhatsAppActivity({
-          lead_id: lead.leadId,
-          direction: 'inbound',
-          external_whatsapp_message_id: waMessageId,
-          message_markdown: body ?? '', // fallback empty string for Close API
-          date: timestamp.toISOString(), // forward actual message time to Close
-        });
-        if (activityId) {
+      if (lead && inserted && e164) {
+        // Fetch rep's WA phone for local_phone field
+        const repRow = await pool.query<{ wa_phone: string | null }>(
+          'SELECT wa_phone FROM reps WHERE id = $1',
+          [repId]
+        );
+        const localPhone = repRow.rows[0]?.wa_phone ?? '';
+
+        // Fetch contact_id from lead's contacts matching the remote phone
+        const contactId = await closeClient.findContactId(lead.leadId, e164);
+        if (!contactId) {
+          logger.warn({ repId, leadId: lead.leadId, e164 }, 'No contact_id found on lead — skipping Close sync');
+        } else {
+          const payload = {
+            lead_id: lead.leadId,
+            contact_id: contactId,
+            direction: closeDirection,
+            external_whatsapp_message_id: waMessageId,
+            local_phone: localPhone,
+            remote_phone: e164,
+            message_markdown: body ?? '',
+            activity_at: timestamp.toISOString(),
+          };
+          logger.info({ repId, waMessageId, leadId: lead.leadId, direction: closeDirection }, 'Posting WhatsApp activity to Close');
           try {
-            await pool.query(
-              'UPDATE messages SET close_activity_id = $1 WHERE id = $2',
-              [activityId, waMessageId]
-            );
-          } catch (updateErr) {
-            // Activity IS in Close but our DB record does not reflect it.
-            // Log at error level with both IDs so ops can reconcile.
+            const activityId = await closeClient.postWhatsAppActivity(payload);
+            if (activityId) {
+              logger.info({ repId, waMessageId, activityId }, 'Close activity created');
+              try {
+                await pool.query(
+                  'UPDATE messages SET close_activity_id = $1 WHERE id = $2',
+                  [activityId, waMessageId]
+                );
+              } catch (updateErr) {
+                logger.error(
+                  { repId, waMessageId, activityId, err: updateErr },
+                  'Close activity posted but DB close_activity_id update failed — manual reconciliation required'
+                );
+              }
+            }
+          } catch (closeErr: any) {
             logger.error(
-              { repId, waMessageId, activityId, err: updateErr },
-              'Close activity posted but DB close_activity_id update failed — manual reconciliation required'
+              { repId, waMessageId, err: closeErr, responseData: closeErr?.response?.data },
+              'Failed to post WhatsApp activity to Close'
             );
           }
         }
