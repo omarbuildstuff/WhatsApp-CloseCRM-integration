@@ -21,6 +21,7 @@ export class SessionManager extends EventEmitter {
   private sessions = new Map<string, WASocket>();
   private reconnectAttempts = new Map<string, number>();
   private reconnectTimers = new Map<string, NodeJS.Timeout>();
+  private disconnecting = new Set<string>();
   private logger = pino({ level: 'info' });
 
   async connect(repId: string): Promise<void> {
@@ -87,6 +88,11 @@ export class SessionManager extends EventEmitter {
       if (connection === 'close') {
         const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
         this.logger.info({ repId, statusCode, error: lastDisconnect?.error?.message }, 'Connection closed');
+        if (this.disconnecting.has(repId)) {
+          this.disconnecting.delete(repId);
+          this.logger.info({ repId }, 'User-initiated disconnect — skipping reconnect');
+          return;
+        }
         await this.handleReconnect(repId, lastDisconnect);
       }
     };
@@ -193,6 +199,7 @@ export class SessionManager extends EventEmitter {
       clearTimeout(timer);
       this.reconnectTimers.delete(repId);
     }
+    this.disconnecting.add(repId);
     const sock = this.sessions.get(repId);
     if (sock) {
       sock.end(undefined);
