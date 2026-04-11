@@ -177,9 +177,9 @@ export class SessionManager extends EventEmitter {
   }
 
   async resumeAll(): Promise<void> {
-    // Only reconnect 'connected' or 'disconnected' reps — never 'needs_qr' (per Pitfall 4)
+    // Only reconnect reps that were actively connected — not user-disconnected or needs_qr
     const { rows } = await pool.query(
-      "SELECT id FROM reps WHERE status IN ('connected', 'disconnected')"
+      "SELECT id FROM reps WHERE status = 'connected'"
     );
     this.logger.info({ count: rows.length }, 'Resuming rep sessions');
     for (const row of rows) {

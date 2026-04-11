@@ -103,17 +103,21 @@ export class MessageHandler {
       // Step 3: LEAD LOOKUP
       const lead = e164 ? await phoneCache.lookup(e164) : null;
 
-      // Step 4: PERSIST TO DB — ALWAYS, regardless of lead match (SYNC-03)
+      // Step 4+5: PERSIST + SYNC — only for lead-matched messages
+      if (!lead || !e164) {
+        logger.debug({ repId, waMessageId, e164 }, 'No lead match — skipping DB persist and Close sync');
+        return;
+      }
+
       const result = await pool.query(
         `INSERT INTO messages (id, rep_id, direction, wa_jid, phone_e164, lead_id, body, media_type, timestamp)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (id) DO NOTHING`,
-        [waMessageId, repId, dbDirection, jid, e164 ?? null, lead?.leadId ?? null, body, mediaType, timestamp]
+        [waMessageId, repId, dbDirection, jid, e164, lead.leadId, body, mediaType, timestamp]
       );
       const inserted = (result.rowCount ?? 0) > 0;
 
-      // Step 5: SYNC TO CLOSE — only if lead matched AND row was inserted (not a duplicate)
-      if (lead && inserted && e164) {
+      if (inserted) {
         // Fetch rep's WA phone and Close user ID for activity attribution
         const repRow = await pool.query<{ wa_phone: string | null; close_user_id: string | null }>(
           'SELECT wa_phone, close_user_id FROM reps WHERE id = $1',
