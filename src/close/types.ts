@@ -40,6 +40,7 @@ export interface WhatsAppActivityPayload {
   remote_phone: string;
   message_markdown: string;
   activity_at?: string;   // ISO 8601 — activity timestamp in Close
+  user_id?: string;       // Close user ID — attributes activity to specific rep
 }
 
 /** Response from POST /activity/whatsapp_message/ */

@@ -114,19 +114,20 @@ export class MessageHandler {
 
       // Step 5: SYNC TO CLOSE — only if lead matched AND row was inserted (not a duplicate)
       if (lead && inserted && e164) {
-        // Fetch rep's WA phone for local_phone field
-        const repRow = await pool.query<{ wa_phone: string | null }>(
-          'SELECT wa_phone FROM reps WHERE id = $1',
+        // Fetch rep's WA phone and Close user ID for activity attribution
+        const repRow = await pool.query<{ wa_phone: string | null; close_user_id: string | null }>(
+          'SELECT wa_phone, close_user_id FROM reps WHERE id = $1',
           [repId]
         );
         const localPhone = repRow.rows[0]?.wa_phone ?? '';
+        const closeUserId = repRow.rows[0]?.close_user_id ?? undefined;
 
         // Fetch contact_id from lead's contacts matching the remote phone
         const contactId = await closeClient.findContactId(lead.leadId, e164);
         if (!contactId) {
           logger.warn({ repId, leadId: lead.leadId, e164 }, 'No contact_id found on lead — skipping Close sync');
         } else {
-          const payload = {
+          const payload: import('../close/types').WhatsAppActivityPayload = {
             lead_id: lead.leadId,
             contact_id: contactId,
             direction: closeDirection,
@@ -135,6 +136,7 @@ export class MessageHandler {
             remote_phone: e164,
             message_markdown: body ?? '',
             activity_at: timestamp.toISOString(),
+            ...(closeUserId ? { user_id: closeUserId } : {}),
           };
           logger.info({ repId, waMessageId, leadId: lead.leadId, direction: closeDirection }, 'Posting WhatsApp activity to Close');
           try {
