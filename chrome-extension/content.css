@@ -1,0 +1,170 @@
+/* WA/Close Chrome Extension — injected widget */
+
+#waclose-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999999;
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+}
+
+#waclose-fab {
+  width: 48px;
+  height: 48px;
+  background: #25D366;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  transition: transform 200ms ease, background 200ms ease;
+}
+
+#waclose-fab:hover {
+  transform: scale(1.08);
+  background: #1DA851;
+}
+
+#waclose-fab svg {
+  width: 24px;
+  height: 24px;
+  fill: #fff;
+}
+
+#waclose-panel {
+  display: none;
+  position: absolute;
+  bottom: 60px;
+  right: 0;
+  width: 340px;
+  background: #fff;
+  border: 1px solid #E0E0E0;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  animation: waclose-slide-up 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#waclose-panel.open {
+  display: block;
+}
+
+@keyframes waclose-slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.waclose-header {
+  background: #000;
+  color: #fff;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.waclose-header span { color: #25D366; }
+
+.waclose-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.waclose-close:hover { color: #fff; }
+
+.waclose-body {
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.waclose-field {
+  display: grid;
+  gap: 4px;
+}
+
+.waclose-field label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6B6B6B;
+}
+
+.waclose-field input,
+.waclose-field textarea,
+.waclose-field select {
+  border: none;
+  border-bottom: 1px solid #E0E0E0;
+  padding: 8px 0;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 300;
+  color: #0F0F0F;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  resize: none;
+}
+
+.waclose-field textarea {
+  border: 1px solid #E0E0E0;
+  padding: 8px 10px;
+  min-height: 72px;
+}
+
+.waclose-field input:focus,
+.waclose-field select:focus { border-bottom-color: #000; }
+.waclose-field textarea:focus { border-color: #000; }
+
+.waclose-send {
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: inherit;
+  min-height: 40px;
+  transition: background 200ms ease;
+}
+
+.waclose-send:hover { background: #333; }
+.waclose-send:active { transform: scale(0.97); }
+
+.waclose-send.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.waclose-status {
+  font-size: 11px;
+  padding: 8px;
+  text-align: center;
+  display: none;
+}
+
+.waclose-status.ok { display: block; background: #E8F5E9; color: #1B5E20; }
+.waclose-status.err { display: block; background: #FDECEA; color: #B71C1C; }
+
+.waclose-detected {
+  font-size: 11px;
+  color: #6B6B6B;
+  padding: 8px 0 0;
+  font-weight: 300;
+}
+
+.waclose-detected strong {
+  color: #0F0F0F;
+  font-weight: 500;
+}

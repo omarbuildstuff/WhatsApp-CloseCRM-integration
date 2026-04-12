@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "WA/Close — Send WhatsApp",
+  "version": "1.0.0",
+  "description": "Send WhatsApp messages directly from Close CRM lead pages",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["https://app.close.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://app.close.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

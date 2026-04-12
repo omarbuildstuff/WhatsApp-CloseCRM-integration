@@ -28,6 +28,15 @@ async function main() {
 
   const app = express();
 
+  // CORS — allow Chrome extension and Close CRM to call the API
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+    next();
+  });
+
   // Close webhook — MUST be before express.json() to preserve raw body for HMAC verification
   app.post(
     '/webhook/close',
