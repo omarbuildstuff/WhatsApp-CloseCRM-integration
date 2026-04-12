@@ -67,23 +67,39 @@ export class MessageHandler {
   async handle(repId: string, msg: proto.IWebMessageInfo): Promise<void> {
     // Step 1: FILTER CHAIN — return early, no side effects
     if (!msg.key.remoteJid) { logger.debug({ repId }, 'Filtered: no remoteJid'); return; }
-    if (msg.key.remoteJid.endsWith('@g.us')) { logger.debug({ repId, jid: msg.key.remoteJid }, 'Filtered: group message'); return; }
     if (!msg.message) { logger.debug({ repId, msgId: msg.key.id }, 'Filtered: no message content'); return; }
     if (!msg.key.id) { logger.debug({ repId }, 'Filtered: no message id'); return; }
 
     // Step 2: EXTRACT
+    const isGroup = msg.key.remoteJid.endsWith('@g.us');
     const jid = msg.key.remoteJid;
     const waMessageId = msg.key.id;
     const body = extractBody(msg);
     const mediaType = detectMediaType(msg);
-    let e164 = await resolveJidToE164(jid);  // async — handles @lid via DB lookup
+
+    // For group messages, resolve the participant's phone (the sender)
+    // For DMs, resolve the remote JID as before
+    const phoneJid = isGroup ? (msg.key.participant ?? null) : jid;
+
+    if (isGroup && !phoneJid) {
+      logger.debug({ repId, jid }, 'Filtered: group message without participant');
+      return;
+    }
+
+    // Skip outgoing group messages — rep's message goes to the group, not a specific lead
+    if (isGroup && msg.key.fromMe) {
+      logger.debug({ repId, jid }, 'Filtered: outgoing group message');
+      return;
+    }
+
+    let e164 = phoneJid ? await resolveJidToE164(phoneJid) : null;
     // Fallback: if @lid JID wasn't in lid_phone_map, try live resolution via Baileys socket
-    if (!e164) {
-      const decoded = jidDecode(jid);
+    if (!e164 && phoneJid) {
+      const decoded = jidDecode(phoneJid);
       if (decoded?.server === 'lid') {
-        e164 = await sessionManager.resolveLidJid(repId, jid);
+        e164 = await sessionManager.resolveLidJid(repId, phoneJid);
         if (e164) {
-          logger.info({ repId, jid, e164 }, 'Resolved @lid JID via live Baileys query');
+          logger.info({ repId, jid: phoneJid, e164 }, 'Resolved @lid JID via live Baileys query');
         }
       }
     }
@@ -97,7 +113,11 @@ export class MessageHandler {
       : 0;
     const timestamp = new Date(tsSec * 1000); // PITFALL: seconds, not ms!
 
-    logger.info({ repId, waMessageId, jid, e164, body: body?.substring(0, 50) }, 'Message passed filters — persisting');
+    logger.info({ repId, waMessageId, jid, e164, isGroup, body: body?.substring(0, 50) }, 'Message passed filters — persisting');
+
+    // For group messages, prefix the body with [Group: <name>] for context in Close
+    const groupPrefix = isGroup ? `[Group Chat] ` : '';
+    const closeBody = groupPrefix + (body ?? '');
 
     try {
       // Step 3: LEAD LOOKUP — find ALL leads matching this phone
@@ -141,7 +161,7 @@ export class MessageHandler {
             external_whatsapp_message_id: waMessageId,
             local_phone: localPhone,
             remote_phone: e164,
-            message_markdown: body ?? '',
+            message_markdown: closeBody,
             activity_at: timestamp.toISOString(),
             ...(closeUserId ? { user_id: closeUserId } : {}),
           };
