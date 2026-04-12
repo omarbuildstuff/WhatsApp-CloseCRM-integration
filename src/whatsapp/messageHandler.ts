@@ -59,6 +59,7 @@ export function detectMediaType(msg: proto.IWebMessageInfo): string | null {
   return null;
 }
 
+export class MessageHandler {
   // Cache group participants (1 hour TTL)
   private groupCache = new Map<string, { participants: string[]; expiresAt: number }>();
 
