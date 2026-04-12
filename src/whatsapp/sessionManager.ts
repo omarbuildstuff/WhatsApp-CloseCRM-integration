@@ -78,10 +78,14 @@ export class SessionManager extends EventEmitter {
         this.emit('status', { repId, status: 'connected' });
 
         // Bootstrap lid→phone mappings from known phone JIDs.
-        // sock.onWhatsApp(phone) returns both the phone JID and the lid,
-        // letting us map future inbound @lid messages to E.164 phone numbers.
         this.bootstrapLidMappings(repId, sock).catch((err) => {
           this.logger.error({ repId, err }, 'lid bootstrap failed — non-fatal');
+        });
+
+        // Proactively establish Signal sessions with recent contacts
+        // so messages sent from the phone app can be decrypted
+        this.assertRecentSessions(repId, sock).catch((err) => {
+          this.logger.error({ repId, err }, 'Session assertion failed — non-fatal');
         });
       }
 
@@ -112,6 +116,24 @@ export class SessionManager extends EventEmitter {
           this.logger.info({ repId, msgId: msg.key.id, from: msg.key.remoteJid, fromMe: msg.key.fromMe }, 'Emitting message event');
           this.emit('message', { repId, msg });
         }
+      }
+    });
+
+    // Process history sync — captures messages sent from the phone app
+    // These are already decrypted by the WhatsApp protocol layer
+    sock.ev.on('messaging-history.set', ({ messages: historyMessages, syncType }) => {
+      if (!historyMessages?.length) return;
+      // Only process messages from last 24 hours to avoid flooding
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      const recent = historyMessages.filter((msg) => {
+        const ts = msg.messageTimestamp
+          ? (typeof msg.messageTimestamp === 'number' ? msg.messageTimestamp : msg.messageTimestamp.toNumber())
+          : 0;
+        return ts * 1000 > cutoff;
+      });
+      this.logger.info({ repId, syncType, total: historyMessages.length, recent: recent.length }, 'History sync received — processing recent messages');
+      for (const msg of recent) {
+        this.emit('message', { repId, msg });
       }
     });
 
@@ -274,6 +296,34 @@ export class SessionManager extends EventEmitter {
       }
     }
     this.logger.info({ repId, mapped, total: rows.length }, 'lid bootstrap complete');
+  }
+
+  /**
+   * Proactively establish Signal sessions with recent contacts so that
+   * messages sent from the primary phone app can be decrypted by Baileys.
+   */
+  private async assertRecentSessions(repId: string, sock: WASocket): Promise<void> {
+    const { rows } = await pool.query<{ phone_e164: string }>(
+      `SELECT DISTINCT phone_e164 FROM messages
+       WHERE rep_id = $1 AND phone_e164 IS NOT NULL
+       LIMIT 200`,
+      [repId]
+    );
+    if (rows.length === 0) return;
+
+    const jids = rows.map(r => r.phone_e164.replace('+', '') + '@s.whatsapp.net');
+    this.logger.info({ repId, contactCount: jids.length }, 'Asserting Signal sessions with recent contacts');
+
+    // Batch into groups of 50
+    for (let i = 0; i < jids.length; i += 50) {
+      const batch = jids.slice(i, i + 50);
+      try {
+        const fetched = await sock.assertSessions(batch, false);
+        this.logger.info({ repId, batch: batch.length, newSessions: fetched }, 'Session assertion batch complete');
+      } catch (err) {
+        this.logger.warn({ repId, err }, 'assertSessions batch failed — continuing');
+      }
+    }
   }
 
   /**
