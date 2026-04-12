@@ -116,33 +116,22 @@ export class MessageHandler {
     const groupPrefix = isGroup ? `[Group Chat] ` : '';
     const closeBody = groupPrefix + (body ?? '');
 
-    // ── Group message: outgoing → sync to all lead-participants in the group
-    //                   incoming → sync to the sender's lead(s)
+    // ── Group message: sync to ALL lead-participants in the group
+    // Any message in a group (incoming or outgoing) gets posted to every
+    // lead that is a participant in that group.
     if (isGroup) {
-      if (isFromMe) {
-        // Outgoing group message: find all participants who are leads
-        const participantPhones = await this.getGroupParticipantPhones(repId, jid);
-        if (participantPhones.length === 0) {
-          logger.debug({ repId, jid }, 'No resolvable participants in group');
-          return;
-        }
-        logger.info({ repId, waMessageId, jid, participantCount: participantPhones.length, body: body?.substring(0, 50) }, 'Outgoing group message — checking participants for leads');
-        await this.syncToPhones(repId, waMessageId, jid, participantPhones, closeBody, mediaType, closeDirection, timestamp);
-      } else {
-        // Incoming group message: sync to the sender's lead(s)
-        const phoneJid = msg.key.participant ?? null;
-        if (!phoneJid) { logger.debug({ repId, jid }, 'Filtered: group message without participant'); return; }
-        let e164 = await resolveJidToE164(phoneJid);
-        if (!e164) {
-          const decoded = jidDecode(phoneJid);
-          if (decoded?.server === 'lid') {
-            e164 = await sessionManager.resolveLidJid(repId, phoneJid);
-          }
-        }
-        if (!e164) { logger.debug({ repId, jid, phoneJid }, 'Cannot resolve group participant phone'); return; }
-        logger.info({ repId, waMessageId, jid, e164, body: body?.substring(0, 50) }, 'Incoming group message — syncing sender');
-        await this.syncToPhones(repId, waMessageId, jid, [e164], closeBody, mediaType, closeDirection, timestamp);
+      const participantPhones = await this.getGroupParticipantPhones(repId, jid);
+      if (participantPhones.length === 0) {
+        logger.debug({ repId, jid }, 'No resolvable participants in group');
+        return;
       }
+      // Add sender name prefix for incoming messages so you know who said what
+      let groupBody = closeBody;
+      if (!isFromMe && msg.pushName) {
+        groupBody = `[Group Chat] ${msg.pushName}: ${body ?? ''}`;
+      }
+      logger.info({ repId, waMessageId, jid, isFromMe, participantCount: participantPhones.length, body: body?.substring(0, 50) }, 'Group message — syncing to all lead-participants');
+      await this.syncToPhones(repId, waMessageId, jid, participantPhones, groupBody, mediaType, closeDirection, timestamp);
       return;
     }
 
