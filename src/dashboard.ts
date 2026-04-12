@@ -8,6 +8,7 @@ import type { IncomingMessage } from 'http';
 import { toDataURL } from 'qrcode';
 import { jidEncode } from '@whiskeysockets/baileys';
 import { config } from './config';
+import { closeClient } from './close/client';
 import { pool } from './db/pool';
 import { sessionManager } from './whatsapp/sessionManager';
 
@@ -165,12 +166,12 @@ export function createDashboardRouter(): express.Router {
     }
   });
 
-  // POST /api/reps — create a new rep (T-05-02: name validation + parameterized SQL)
+  // POST /api/reps — create a new rep (name + email → auto-resolve Close user ID)
   apiRouter.post('/reps', async (req, res) => {
     try {
-      const { name, close_user_id, wa_phone } = req.body as {
+      const { name, email, wa_phone } = req.body as {
         name?: unknown;
-        close_user_id?: unknown;
+        email?: unknown;
         wa_phone?: unknown;
       };
 
@@ -179,11 +180,23 @@ export function createDashboardRouter(): express.Router {
         return;
       }
 
+      // Resolve Close user ID from email
+      let closeUserId: string | null = null;
+      if (email && typeof email === 'string' && email.trim()) {
+        const user = await closeClient.findUserByEmail(email.trim());
+        if (!user) {
+          res.status(400).json({ error: `No Close user found for email: ${email.trim()}` });
+          return;
+        }
+        closeUserId = user.userId;
+        logger.info({ email: email.trim(), closeUserId }, 'Resolved Close user from email');
+      }
+
       const { rows } = await pool.query(
         'INSERT INTO reps (name, close_user_id, wa_phone, status) VALUES ($1, $2, $3, $4) RETURNING *',
         [
           name.trim(),
-          close_user_id && typeof close_user_id === 'string' ? close_user_id.trim() || null : null,
+          closeUserId,
           wa_phone && typeof wa_phone === 'string' ? wa_phone.trim() || null : null,
           'needs_qr',
         ]

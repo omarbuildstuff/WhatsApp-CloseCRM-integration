@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "WA-Close Dev Server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "WA-Close Production",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 3000
+    },
+    {
+      "name": "DB Init",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "db:init"],
+      "port": 0
+    }
+  ]
+}

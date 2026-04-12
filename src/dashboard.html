@@ -3,324 +3,772 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WhatsApp-Close Integration</title>
+  <title>WA-Close Integration</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #1a1a2e;
-      color: #e0e0e0;
-      min-height: 100vh;
+    :root {
+      --black: #000000;
+      --white: #FFFFFF;
+      --bg: #F5F5F5;
+      --text: #0F0F0F;
+      --text-muted: #6B6B6B;
+      --border: #E0E0E0;
+      --accent: #25D366;
+      --accent-hover: #1DA851;
+      --danger: #D32F2F;
+      --danger-bg: #FDECEA;
+      --warning: #E65100;
+      --warning-bg: #FFF3E0;
+      --success-bg: #E8F5E9;
+      --card: #FFFFFF;
+      --radius: 2px;
+      --font: 'Inter', -apple-system, system-ui, sans-serif;
     }
 
-    /* ── Login screen ────────────────────────────────────────────────── */
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      font-weight: 300;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Login ───────────────────────────────────────────────────────── */
     #login-screen {
       display: flex;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
+      padding: 16px;
     }
 
     .login-card {
-      background: #16213e;
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 40px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 48px 40px;
       width: 100%;
-      max-width: 360px;
+      max-width: 380px;
     }
 
-    .login-card h1 {
-      font-size: 1.25rem;
-      margin-bottom: 24px;
-      color: #e0e0e0;
-      text-align: center;
+    .login-title {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .login-heading {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 32px;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
     }
 
     .login-error {
-      color: #e94560;
-      font-size: 0.875rem;
+      color: var(--danger);
+      font-size: 13px;
+      font-weight: 400;
       margin-bottom: 12px;
       display: none;
     }
 
-    /* ── Header ─────────────────────────────────────────────────────── */
+    /* ── Header ──────────────────────────────────────────────────────── */
     header {
-      background: #0f3460;
-      padding: 12px 24px;
+      background: var(--black);
+      color: var(--white);
+      padding: 0 32px;
+      height: 52px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
-    header h1 {
-      font-size: 1.125rem;
-      color: #e0e0e0;
+    .header-brand {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
     }
 
-    /* ── Main content ────────────────────────────────────────────────── */
+    .header-accent {
+      color: var(--accent);
+    }
+
+    .header-sub {
+      font-size: 10px;
+      font-weight: 300;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      opacity: 0.6;
+      margin-left: 12px;
+    }
+
+    /* ── Main ────────────────────────────────────────────────────────── */
     main {
-      padding: 24px;
-      max-width: 900px;
+      max-width: 960px;
       margin: 0 auto;
+      padding: 48px 32px;
+      display: grid;
+      gap: 48px;
     }
 
+    /* ── Section ─────────────────────────────────────────────────────── */
     section {
-      margin-bottom: 32px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .section-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      line-height: 1.1;
+    }
+
+    .section-rule {
+      width: 100%;
+      height: 1px;
+      background: var(--black);
+      border: none;
+      margin: 0;
     }
 
     .section-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
+      display: grid;
+      gap: 4px;
     }
 
-    .section-header h2 {
-      font-size: 1rem;
-      color: #e0e0e0;
+    .section-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     /* ── Rep cards ───────────────────────────────────────────────────── */
     #rep-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      display: grid;
+      gap: 0;
     }
 
     .rep-card {
-      background: #16213e;
-      border: 1px solid #333;
-      border-radius: 6px;
-      padding: 16px;
-      display: flex;
+      background: var(--card);
+      padding: 20px 24px;
+      display: grid;
+      grid-template-columns: 2fr 1fr auto;
       align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
+      gap: 24px;
+      border-bottom: 1px solid var(--border);
+      transition: background-color 200ms ease;
     }
 
-    .rep-info {
-      flex: 1;
-      min-width: 160px;
+    .rep-card:first-child {
+      border-top: 1px solid var(--border);
+    }
+
+    .rep-card:hover {
+      background: var(--card);
     }
 
     .rep-name {
-      font-weight: 600;
-      color: #e0e0e0;
-      margin-bottom: 4px;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--text);
+      letter-spacing: -0.01em;
     }
 
     .rep-meta {
-      font-size: 0.8125rem;
-      color: #a0a0a0;
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--text-muted);
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .rep-status-col {
+      text-align: right;
     }
 
     .rep-actions {
       display: flex;
       gap: 8px;
-      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     /* ── Status badges ───────────────────────────────────────────────── */
     .status-badge {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      font-size: 0.8125rem;
-      padding: 2px 8px;
-      border-radius: 12px;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: var(--radius);
+      white-space: nowrap;
     }
 
     .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       display: inline-block;
+      flex-shrink: 0;
     }
 
-    .status-connected   { background: rgba(76,175,80,0.15); color: #4caf50; }
-    .status-connected   .status-dot { background: #4caf50; }
-    .status-disconnected { background: rgba(244,67,54,0.15); color: #f44336; }
-    .status-disconnected .status-dot { background: #f44336; }
-    .status-needs_qr    { background: rgba(255,152,0,0.15); color: #ff9800; }
-    .status-needs_qr    .status-dot { background: #ff9800; }
+    .status-connected { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .status-connected .status-dot { background: var(--accent); }
+    .status-disconnected { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .status-disconnected .status-dot { background: var(--text-muted); }
+    .status-needs_qr { background: transparent; color: var(--warning); border: 1px solid var(--warning); }
+    .status-needs_qr .status-dot { background: var(--warning); }
 
     /* ── Forms ───────────────────────────────────────────────────────── */
     .form-panel {
-      background: #16213e;
-      border: 1px solid #333;
-      border-radius: 6px;
-      padding: 20px;
-      margin-top: 12px;
-      display: none;
+      background: var(--card);
+      border-top: 1px solid var(--black);
+      border-bottom: 1px solid var(--border);
+      padding-left: 24px;
+      padding-right: 24px;
     }
 
-    .form-panel.visible { display: block; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
 
     .form-row {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      margin-bottom: 14px;
+      gap: 6px;
     }
 
+    .form-row.full { grid-column: 1 / -1; }
+    .form-row.span-2 { grid-column: span 2; }
+
     label {
-      font-size: 0.8125rem;
-      color: #a0a0a0;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
     }
 
     input, textarea, select {
-      background: #0d1b2a;
-      border: 1px solid #333;
-      border-radius: 4px;
-      color: #e0e0e0;
-      padding: 8px 10px;
-      font-size: 0.9375rem;
-      font-family: inherit;
+      background: var(--white);
+      border: none;
+      border-bottom: 1px solid var(--border);
+      border-radius: 0;
+      color: var(--text);
+      padding: 10px 0;
+      font-size: 14px;
+      font-weight: 300;
+      font-family: var(--font);
       width: 100%;
+      transition: border-color 200ms ease;
     }
 
     input:focus, textarea:focus, select:focus {
       outline: none;
-      border-color: #0f3460;
+      border-bottom-color: var(--black);
     }
 
-    textarea { resize: vertical; min-height: 80px; }
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+    }
 
-    /* ── Buttons ─────────────────────────────────────────────────────── */
+    textarea:focus {
+      border-color: var(--black);
+    }
+
+    /* ── Buttons ──────────────────────────────────────────────────────── */
     .btn {
-      padding: 8px 16px;
+      padding: 8px 20px;
+      min-height: 44px;
       border: none;
-      border-radius: 4px;
+      border-radius: 0;
       cursor: pointer;
-      font-size: 0.875rem;
-      font-family: inherit;
-      transition: opacity 0.15s;
-    }
-
-    .btn:hover { opacity: 0.85; }
-
-    .btn-primary  { background: #0f3460; color: #e0e0e0; }
-    .btn-danger   { background: #e94560; color: #fff; }
-    .btn-success  { background: #4caf50; color: #fff; }
-    .btn-warning  { background: #ff9800; color: #fff; }
-    .btn-ghost    { background: transparent; border: 1px solid #333; color: #a0a0a0; }
-
-    /* ── QR Modal ────────────────────────────────────────────────────── */
-    #qr-modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.667);
-      z-index: 100;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--font);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: background-color 200ms ease, color 200ms ease, transform 100ms ease;
+      white-space: nowrap;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
     }
 
-    #qr-modal.open { display: flex; }
+    .btn-primary {
+      background: var(--black);
+      color: var(--white);
+    }
+    .btn-primary:hover { background: #333; }
+
+    .btn-accent {
+      background: var(--accent);
+      color: var(--white);
+    }
+    .btn-accent:hover { background: var(--accent-hover); }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+    .btn-danger:hover { background: var(--danger); color: var(--white); }
+
+    .btn-warning {
+      background: transparent;
+      color: var(--warning);
+      border: 1px solid var(--warning);
+    }
+    .btn-warning:hover { background: var(--warning); color: var(--white); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--border); color: var(--text); }
+
+    .btn-sm {
+      padding: 6px 14px;
+      font-size: 10px;
+      min-height: 36px;
+    }
+
+    /* ── QR Modal ────────────────────────────────────────────────────── */
+    #qr-modal {
+      display: flex;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
 
     .modal-box {
-      background: #16213e;
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 28px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 0;
+      padding: 40px;
       max-width: 360px;
       width: 100%;
       text-align: center;
     }
 
-    .modal-box h3 { margin-bottom: 16px; color: #e0e0e0; }
+    .modal-title {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
 
     #qr-img {
-      max-width: 220px;
+      max-width: 200px;
       width: 100%;
-      margin: 0 auto 12px;
+      margin: 0 auto 16px;
       display: block;
-      border-radius: 4px;
+      border: 1px solid var(--border);
     }
 
     #qr-countdown {
-      color: #ff9800;
-      font-size: 0.875rem;
-      margin-bottom: 12px;
+      color: var(--warning);
+      font-size: 13px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 8px;
       display: block;
     }
 
     #qr-status {
-      color: #a0a0a0;
-      font-size: 0.875rem;
-      margin-bottom: 16px;
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 20px;
     }
 
     /* ── Result messages ─────────────────────────────────────────────── */
     .result-msg {
-      font-size: 0.875rem;
-      margin-top: 8px;
-      padding: 8px 12px;
-      border-radius: 4px;
+      font-size: 13px;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
       display: none;
     }
 
-    .result-ok  { background: rgba(76,175,80,0.15); color: #4caf50; }
-    .result-err { background: rgba(244,67,54,0.15); color: #f44336; }
+    .result-ok { background: var(--success-bg); color: #1B5E20; }
+    .result-err { background: var(--danger-bg); color: #B71C1C; }
+
+    /* ── Empty state ─────────────────────────────────────────────────── */
+    .empty-state {
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 300;
+      padding: 32px 24px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Toast ───────────────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--black);
+      color: var(--white);
+      padding: 14px 24px;
+      border-radius: 0;
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      z-index: 10000;
+    }
+
+    /* ── Interaction: Button press ───────────────────────────────────── */
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    /* ── Interaction: Button loading state ────────────────────────────── */
+    .btn.is-loading {
+      pointer-events: none;
+      opacity: 0.7;
+      position: relative;
+    }
+
+    .btn.is-loading::after {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border: 1.5px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      right: 8px;
+      top: 50%;
+      margin-top: -6px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Interaction: Form panel slide ────────────────────────────────── */
+    .form-panel {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      border-width: 0;
+      transition: max-height 300ms cubic-bezier(0.16, 1, 0.3, 1),
+                  opacity 200ms ease,
+                  padding 300ms cubic-bezier(0.16, 1, 0.3, 1),
+                  border-width 0ms 300ms;
+      display: block;
+    }
+
+    .form-panel.visible {
+      max-height: 600px;
+      opacity: 1;
+      padding-top: 28px;
+      padding-bottom: 28px;
+      border-width: 1px;
+      overflow: visible;
+      transition: max-height 400ms cubic-bezier(0.16, 1, 0.3, 1),
+                  opacity 300ms ease 50ms,
+                  padding 400ms cubic-bezier(0.16, 1, 0.3, 1),
+                  border-width 0ms;
+    }
+
+    /* ── Interaction: Modal backdrop + box ────────────────────────────── */
+    #qr-modal {
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 250ms ease, visibility 0ms 250ms;
+    }
+
+    #qr-modal.open {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 250ms ease, visibility 0ms;
+    }
+
+    .modal-box {
+      transform: translateY(16px) scale(0.98);
+      transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #qr-modal.open .modal-box {
+      transform: translateY(0) scale(1);
+    }
+
+    /* ── Interaction: Input focus underline grow ──────────────────────── */
+    input, select {
+      background-image: linear-gradient(var(--black), var(--black));
+      background-size: 0% 1px;
+      background-position: center bottom;
+      background-repeat: no-repeat;
+      transition: border-color 200ms ease, background-size 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    input:focus, select:focus {
+      border-bottom-color: transparent;
+      background-size: 100% 1px;
+    }
+
+    /* ── Interaction: Rep card enter ──────────────────────────────────── */
+    .rep-card {
+      animation: cardEnter 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes cardEnter {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ── Interaction: Result message fade ─────────────────────────────── */
+    .result-msg {
+      transition: opacity 200ms ease;
+    }
+
+    /* ── Interaction: Toast enter + exit ──────────────────────────────── */
+    .toast {
+      animation: toastIn 250ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .toast.toast-exit {
+      animation: toastOut 200ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(8px); }
+    }
+
+    /* ── Interaction: Login card entrance ─────────────────────────────── */
+    .login-card {
+      animation: loginEnter 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes loginEnter {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ── Interaction: Tab panel fade in ──────────────────────────────── */
+    .tab-panel.active {
+      animation: panelEnter 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes panelEnter {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ── Tabs ───────────────────────────────────────────────────────── */
+    .tab-bar {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: -1px;
+    }
+
+    .tab-btn {
+      padding: 12px 24px;
+      min-height: 44px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      transition: color 200ms ease, border-color 200ms ease;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .tab-btn:hover { color: var(--text); }
+
+    .tab-btn.active {
+      color: var(--text);
+      border-bottom-color: var(--black);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: grid;
+      gap: 20px;
+    }
+
+    /* ── Focus ───────────────────────────────────────────────────────── */
+    :focus-visible {
+      outline: 2px solid var(--black);
+      outline-offset: 2px;
+    }
+
+    /* ── Reduced motion ──────────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
 
     /* ── Responsive ──────────────────────────────────────────────────── */
-    @media (max-width: 600px) {
-      .rep-card { flex-direction: column; align-items: flex-start; }
-      .rep-actions { width: 100%; }
-      .btn { flex: 1; text-align: center; }
+    @media (max-width: 768px) {
+      main { padding: 32px 16px; gap: 40px; }
+
+      .section-title { font-size: 22px; }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .form-row.span-2 { grid-column: 1; }
+
+      .rep-card {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 16px 20px;
+      }
+
+      .rep-status-col { text-align: left; }
+
+      .rep-actions {
+        width: 100%;
+      }
+
+      .rep-actions .btn {
+        flex: 1;
+        text-align: center;
+      }
     }
   </style>
 </head>
 <body>
 
-<!-- ── Login screen ────────────────────────────────────────────────────── -->
+<!-- ── Login ────────────────────────────────────────────────────────────── -->
 <div id="login-screen">
   <div class="login-card">
-    <h1>WhatsApp-Close Integration</h1>
-    <p id="login-error" class="login-error">Invalid password</p>
-    <div class="form-row">
+    <p class="login-title">WA<span class="header-accent">/</span>Close</p>
+    <h1 class="login-heading">Sign in</h1>
+    <p id="login-error" class="login-error" role="alert">Invalid password</p>
+    <div class="form-row" style="margin-bottom: 20px;">
       <label for="password-input">Password</label>
-      <input type="password" id="password-input" placeholder="Enter dashboard password" />
+      <input type="password" id="password-input" placeholder="Enter dashboard password" aria-describedby="login-error" />
     </div>
-    <button class="btn btn-primary" style="width:100%" onclick="login()">Login</button>
+    <button class="btn btn-primary" style="width:100%" onclick="login()">Sign in</button>
   </div>
 </div>
 
-<!-- ── Main app (hidden until logged in) ─────────────────────────────── -->
+<!-- ── App ──────────────────────────────────────────────────────────────── -->
 <div id="app" style="display:none">
   <header>
-    <h1>WhatsApp-Close Integration</h1>
-    <button class="btn btn-ghost" onclick="logout()">Logout</button>
+    <div>
+      <span class="header-brand">WA<span class="header-accent">/</span>Close</span>
+      <span class="header-sub">Integration</span>
+    </div>
+    <button class="btn btn-ghost" style="border-color:rgba(255,255,255,0.2);color:rgba(255,255,255,0.5);border-radius:0" onclick="logout()">Logout</button>
   </header>
 
   <main>
 
-    <!-- Rep management section -->
-    <section>
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('reps')">Reps</button>
+      <button class="tab-btn" onclick="switchTab('testing')">Testing</button>
+    </div>
+
+    <!-- Rep management -->
+    <section class="tab-panel active" id="tab-reps">
       <div class="section-header">
-        <h2>Reps</h2>
-        <button class="btn btn-primary" onclick="toggleAddRepForm()">Add Rep</button>
+        <div class="section-header-row">
+          <h2 class="section-title">Reps</h2>
+          <button class="btn btn-primary btn-sm" onclick="toggleAddRepForm()">Add Rep</button>
+        </div>
+        <hr class="section-rule" />
       </div>
 
-      <!-- Add rep form (hidden by default) -->
+      <!-- Add rep form -->
       <div class="form-panel" id="add-rep-panel">
-        <div class="form-row">
-          <label for="rep-name">Name *</label>
-          <input type="text" id="rep-name" placeholder="e.g. Jane Smith" />
-        </div>
-        <div class="form-row">
-          <label for="rep-close-id">Close User ID (optional)</label>
-          <input type="text" id="rep-close-id" placeholder="e.g. user_abc123" />
-        </div>
-        <div class="form-row">
-          <label for="rep-phone">WhatsApp Phone (optional)</label>
-          <input type="text" id="rep-phone" placeholder="e.g. +15551234567" />
-        </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap">
-          <button class="btn btn-success" onclick="submitAddRep()">Save Rep</button>
-          <button class="btn btn-ghost" onclick="toggleAddRepForm()">Cancel</button>
+        <div class="form-grid">
+          <div class="form-row">
+            <label for="rep-name">Name *</label>
+            <input type="text" id="rep-name" placeholder="Jane Smith" required />
+          </div>
+          <div class="form-row">
+            <label for="rep-email">Close Email *</label>
+            <input type="email" id="rep-email" placeholder="jane@company.com" required />
+          </div>
+          <div class="form-row">
+            <label for="rep-phone">WhatsApp Phone *</label>
+            <input type="text" id="rep-phone" placeholder="+15551234567" required />
+          </div>
+          <div class="form-row full" style="justify-content:flex-end;flex-direction:row;gap:8px;align-items:end">
+            <button class="btn btn-ghost btn-sm" onclick="toggleAddRepForm()">Cancel</button>
+            <button class="btn btn-accent btn-sm" onclick="submitAddRep()">Save Rep</button>
+          </div>
         </div>
         <p id="add-rep-result" class="result-msg"></p>
       </div>
@@ -328,27 +776,32 @@
       <div id="rep-list"></div>
     </section>
 
-    <!-- Send message section (placeholder — /api/send route added in Plan 02) -->
-    <section>
+    <!-- Send message -->
+    <section class="tab-panel" id="tab-testing">
       <div class="section-header">
-        <h2>Send Test Message</h2>
+        <h2 class="section-title">Send Message</h2>
+        <hr class="section-rule" />
       </div>
       <div class="form-panel visible">
-        <div class="form-row">
-          <label for="send-rep">Rep</label>
-          <select id="send-rep">
-            <option value="">Select a rep...</option>
-          </select>
+        <div class="form-grid">
+          <div class="form-row">
+            <label for="send-rep">Rep</label>
+            <select id="send-rep">
+              <option value="">Select a rep...</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="send-phone">Recipient Phone</label>
+            <input type="text" id="send-phone" placeholder="+15551234567" />
+          </div>
+          <div class="form-row full">
+            <label for="send-message">Message</label>
+            <textarea id="send-message" placeholder="Your message..."></textarea>
+          </div>
+          <div class="form-row full" style="justify-content:flex-end;flex-direction:row;align-items:end">
+            <button class="btn btn-primary btn-sm" onclick="sendMessage()">Send</button>
+          </div>
         </div>
-        <div class="form-row">
-          <label for="send-phone">Recipient Phone</label>
-          <input type="text" id="send-phone" placeholder="e.g. +15551234567" />
-        </div>
-        <div class="form-row">
-          <label for="send-message">Message</label>
-          <textarea id="send-message" placeholder="Your message..."></textarea>
-        </div>
-        <button class="btn btn-primary" onclick="sendMessage()">Send</button>
         <p id="send-result" class="result-msg"></p>
       </div>
     </section>
@@ -356,10 +809,10 @@
   </main>
 </div>
 
-<!-- ── QR Modal (wired by Plan 02 WebSocket handler) ─────────────────── -->
-<div id="qr-modal">
+<!-- ── QR Modal ─────────────────────────────────────────────────────────── -->
+<div id="qr-modal" role="dialog" aria-modal="true" aria-labelledby="qr-modal-title">
   <div class="modal-box">
-    <h3>Scan QR Code</h3>
+    <h2 class="modal-title" id="qr-modal-title">Scan QR Code</h2>
     <img id="qr-img" src="" alt="QR Code" />
     <span id="qr-countdown"></span>
     <p id="qr-status">Waiting for scan...</p>
@@ -399,10 +852,12 @@
   async function login() {
     const input = document.getElementById('password-input');
     const errEl = document.getElementById('login-error');
+    const btn = document.querySelector('#login-screen .btn-primary');
     const pw = input.value.trim();
     if (!pw) return;
 
     token = pw;
+    btn.classList.add('is-loading');
     try {
       const res = await fetch(API_BASE + '/api/reps', {
         headers: { 'Authorization': 'Bearer ' + token },
@@ -415,12 +870,15 @@
         connectWebSocket();
         await loadReps();
       } else {
-        errEl.style.display = '';
+        errEl.style.display = 'block';
         token = localStorage.getItem('token') || '';
       }
     } catch (err) {
-      errEl.style.display = '';
+      errEl.textContent = 'Connection error. Please try again.';
+      errEl.style.display = 'block';
       token = localStorage.getItem('token') || '';
+    } finally {
+      btn.classList.remove('is-loading');
     }
   }
 
@@ -433,7 +891,6 @@
     document.getElementById('password-input').value = '';
   }
 
-  // Auto-login on page load if token is stored
   window.addEventListener('DOMContentLoaded', async () => {
     if (token) {
       try {
@@ -449,13 +906,10 @@
           localStorage.removeItem('token');
           token = '';
         }
-      } catch (_) {
-        // Network error — stay on login
-      }
+      } catch (_) {}
     }
   });
 
-  // Allow pressing Enter in password field
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
       login();
@@ -480,9 +934,13 @@
   function renderRepList(reps) {
     const container = document.getElementById('rep-list');
     if (!reps.length) {
-      container.innerHTML = '<p style="color:#a0a0a0;font-size:0.875rem">No reps yet. Add one above.</p>';
+      container.className = '';
+      container.innerHTML = '<p class="empty-state">No reps yet. Add one above.</p>';
       return;
     }
+
+    container.className = '';
+    container.style.cssText = 'display:grid;gap:0;';
 
     container.innerHTML = reps.map((rep) => {
       const statusClass = 'status-' + rep.status;
@@ -490,28 +948,29 @@
 
       const safeId = escHtml(rep.id);
       const connectBtn = (rep.status === 'disconnected' || rep.status === 'needs_qr')
-        ? `<button class="btn btn-warning" onclick="connectRep('${safeId}')">Connect</button>`
+        ? `<button class="btn btn-warning btn-sm" onclick="connectRep('${safeId}')">Connect</button>`
         : '';
       const disconnectBtn = rep.status === 'connected'
-        ? `<button class="btn btn-ghost" onclick="disconnectRep('${safeId}')">Disconnect</button>`
+        ? `<button class="btn btn-ghost btn-sm" onclick="disconnectRep('${safeId}')">Disconnect</button>`
         : '';
 
       return `
         <div class="rep-card" id="rep-${safeId}">
-          <div class="rep-info">
+          <div>
             <div class="rep-name">${escHtml(rep.name)}</div>
             <div class="rep-meta">
-              ${rep.wa_phone ? 'WA: ' + escHtml(rep.wa_phone) + ' &nbsp;' : ''}
-              ${rep.close_user_id ? 'Close: ' + escHtml(rep.close_user_id) : ''}
+              ${rep.wa_phone ? escHtml(rep.wa_phone) : ''}${rep.wa_phone && rep.close_user_id ? ' &middot; ' : ''}${rep.close_user_id ? escHtml(rep.close_user_id) : ''}
             </div>
           </div>
-          <span class="status-badge ${statusClass}">
-            <span class="status-dot"></span>${escHtml(statusLabel)}
-          </span>
+          <div class="rep-status-col">
+            <span class="status-badge ${statusClass}">
+              <span class="status-dot"></span>${escHtml(statusLabel)}
+            </span>
+          </div>
           <div class="rep-actions">
             ${connectBtn}
             ${disconnectBtn}
-            <button class="btn btn-danger" onclick="removeRep('${safeId}', '${escHtml(rep.name)}')">Remove</button>
+            <button class="btn btn-danger btn-sm" onclick="removeRep('${safeId}', '${escHtml(rep.name)}')">Remove</button>
           </div>
         </div>
       `;
@@ -536,32 +995,36 @@
 
   async function submitAddRep() {
     const name = document.getElementById('rep-name').value.trim();
-    const closeUserId = document.getElementById('rep-close-id').value.trim();
+    const email = document.getElementById('rep-email').value.trim();
     const waPhone = document.getElementById('rep-phone').value.trim();
+    const btn = document.querySelector('[onclick="submitAddRep()"]');
 
-    if (!name) {
-      showResult('add-rep-result', 'Name is required.', false);
+    if (!name || !email || !waPhone) {
+      showResult('add-rep-result', 'All fields are required.', false);
       return;
     }
 
+    btn.classList.add('is-loading');
     try {
-      await addRep(name, closeUserId || null, waPhone || null);
+      await addRep(name, email, waPhone);
       document.getElementById('rep-name').value = '';
-      document.getElementById('rep-close-id').value = '';
+      document.getElementById('rep-email').value = '';
       document.getElementById('rep-phone').value = '';
       document.getElementById('add-rep-panel').classList.remove('visible');
       await loadReps();
     } catch (err) {
       if (err.message !== 'Unauthorized') {
-        showResult('add-rep-result', 'Failed to add rep: ' + err.message, false);
+        showResult('add-rep-result', err.message, false);
       }
+    } finally {
+      btn.classList.remove('is-loading');
     }
   }
 
-  async function addRep(name, closeUserId, waPhone) {
+  async function addRep(name, email, waPhone) {
     const res = await apiFetch('/api/reps', {
       method: 'POST',
-      body: JSON.stringify({ name, close_user_id: closeUserId, wa_phone: waPhone }),
+      body: JSON.stringify({ name, email, wa_phone: waPhone }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -583,14 +1046,10 @@
   }
 
   async function connectRep(id) {
-    console.log('[QR] connectRep called for:', id);
     showQrModal(id);
-    console.log('[QR] Modal shown, activeQrRepId:', activeQrRepId);
     try {
-      const res = await apiFetch('/api/reps/' + id + '/connect', { method: 'POST' });
-      console.log('[QR] Connect API responded:', res.status);
+      await apiFetch('/api/reps/' + id + '/connect', { method: 'POST' });
     } catch (err) {
-      console.error('[QR] Connect API failed:', err);
       hideQrModal();
       if (err.message !== 'Unauthorized') {
         showToast('Failed to start connection: ' + err.message);
@@ -615,13 +1074,14 @@
     const repId = document.getElementById('send-rep').value;
     const phone = document.getElementById('send-phone').value.trim();
     const message = document.getElementById('send-message').value.trim();
-    const resultEl = document.getElementById('send-result');
+    const btn = document.querySelector('[onclick="sendMessage()"]');
 
     if (!repId || !phone || !message) {
       showResult('send-result', 'All fields are required.', false);
       return;
     }
 
+    btn.classList.add('is-loading');
     try {
       const res = await apiFetch('/api/send', {
         method: 'POST',
@@ -638,10 +1098,12 @@
       if (err.message !== 'Unauthorized') {
         showResult('send-result', 'Network error: ' + err.message, false);
       }
+    } finally {
+      btn.classList.remove('is-loading');
     }
   }
 
-  // ── WebSocket client ──────────────────────────────────────────────────────
+  // ── WebSocket ─────────────────────────────────────────────────────────────
 
   let ws = null;
   let activeQrRepId = null;
@@ -651,67 +1113,34 @@
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(protocol + '//' + location.host + '/ws?token=' + encodeURIComponent(token));
 
-    ws.onopen = () => {
-      console.log('[WS] Connected');
-    };
+    ws.onopen = () => {};
 
     ws.onmessage = (event) => {
       let msg;
-      try {
-        msg = JSON.parse(event.data);
-      } catch (_) {
-        console.warn('[WS] Received non-JSON frame:', event.data);
-        return;
-      }
-      console.log('[WS] Received:', msg.type, msg.repId, msg);
-      if (msg.type === 'qr') {
-        handleQrEvent(msg.repId, msg.dataUrl);
-      }
-      if (msg.type === 'status') {
-        handleStatusEvent(msg.repId, msg.status);
-      }
+      try { msg = JSON.parse(event.data); } catch (_) { return; }
+      if (msg.type === 'qr') handleQrEvent(msg.repId, msg.dataUrl);
+      if (msg.type === 'status') handleStatusEvent(msg.repId, msg.status);
     };
 
-    ws.onclose = (event) => {
-      // Reconnect after 3 seconds if still logged in (T-05-09: 3s delay prevents tight loop)
-      console.warn('[WS] Closed, code:', event.code, 'reason:', event.reason);
-      if (token) {
-        setTimeout(connectWebSocket, 3000);
-      }
+    ws.onclose = () => {
+      if (token) setTimeout(connectWebSocket, 3000);
     };
 
-    ws.onerror = (err) => {
-      console.error('[WS] Error:', err);
-    };
+    ws.onerror = () => {};
   }
 
   // ── QR Modal ──────────────────────────────────────────────────────────────
 
   function handleQrEvent(repId, dataUrl) {
-    console.log('[QR] handleQrEvent:', repId, 'activeQrRepId:', activeQrRepId, 'match:', repId === activeQrRepId);
-    // Only show QR for the rep we clicked Connect on
-    if (repId !== activeQrRepId) {
-      console.warn('[QR] Ignoring QR for non-active rep:', repId);
-      return;
-    }
-
-    const img = document.getElementById('qr-img');
-    const statusText = document.getElementById('qr-status');
-
-    img.src = dataUrl;
-    statusText.textContent = 'Scan this QR code with WhatsApp on the rep\'s phone';
+    if (repId !== activeQrRepId) return;
+    document.getElementById('qr-img').src = dataUrl;
+    document.getElementById('qr-status').textContent = 'Scan this QR code with WhatsApp on the rep\'s phone';
     document.getElementById('qr-modal').classList.add('open');
-    console.log('[QR] QR image set, modal opened');
-
-    // Reset 20-second countdown on each new QR event
     startCountdown(20);
   }
 
   function handleStatusEvent(repId, status) {
-    // Update the rep's status badge in the list
     updateRepStatus(repId, status);
-
-    // If this rep just connected and the QR modal is showing for them, close it
     if (repId === activeQrRepId && status === 'connected') {
       hideQrModal();
       showToast('Rep connected successfully!');
@@ -722,46 +1151,65 @@
     const card = document.getElementById('rep-' + repId);
     if (!card) return;
 
-    // Update the status badge
     const badge = card.querySelector('.status-badge');
     if (badge) {
       badge.className = 'status-badge status-' + status;
-      const dot = badge.querySelector('.status-dot');
-      if (dot) dot.className = 'status-dot';
       const statusLabel = status === 'needs_qr' ? 'needs QR' : status;
       badge.innerHTML = '<span class="status-dot"></span>' + escHtml(statusLabel);
     }
 
-    // Update action buttons
     const actions = card.querySelector('.rep-actions');
     if (actions) {
       const safeId = escHtml(repId);
       const connectBtn = (status === 'disconnected' || status === 'needs_qr')
-        ? '<button class="btn btn-warning" onclick="connectRep(\'' + safeId + '\')">Connect</button>'
+        ? '<button class="btn btn-warning btn-sm" onclick="connectRep(\'' + safeId + '\')">Connect</button>'
         : '';
       const disconnectBtn = status === 'connected'
-        ? '<button class="btn btn-ghost" onclick="disconnectRep(\'' + safeId + '\')">Disconnect</button>'
+        ? '<button class="btn btn-ghost btn-sm" onclick="disconnectRep(\'' + safeId + '\')">Disconnect</button>'
         : '';
-      // Preserve the Remove button
       const removeBtn = actions.querySelector('.btn-danger');
       actions.innerHTML = connectBtn + disconnectBtn;
       if (removeBtn) actions.appendChild(removeBtn);
     }
   }
 
+  let modalTrigger = null;
+
   function showQrModal(repId) {
     activeQrRepId = repId;
-    document.getElementById('qr-modal').classList.add('open');
+    modalTrigger = document.activeElement;
+    const modal = document.getElementById('qr-modal');
+    modal.classList.add('open');
     document.getElementById('qr-status').textContent = 'Requesting QR code...';
     document.getElementById('qr-img').src = '';
     document.getElementById('qr-countdown').textContent = '';
+    // Focus the close button inside the modal
+    const closeBtn = modal.querySelector('.btn');
+    if (closeBtn) closeBtn.focus();
   }
 
   function hideQrModal() {
     activeQrRepId = null;
     document.getElementById('qr-modal').classList.remove('open');
     stopCountdown();
+    // Return focus to the button that opened the modal
+    if (modalTrigger) { modalTrigger.focus(); modalTrigger = null; }
   }
+
+  // Modal focus trap + Escape key
+  document.getElementById('qr-modal').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { hideQrModal(); return; }
+    if (e.key !== 'Tab') return;
+    const modal = document.querySelector('#qr-modal .modal-box');
+    const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
 
   function startCountdown(seconds) {
     stopCountdown();
@@ -786,17 +1234,31 @@
     }
   }
 
-  // ── Toast notifications ───────────────────────────────────────────────────
+  // ── Toast ─────────────────────────────────────────────────────────────────
 
   function showToast(message) {
     const toast = document.createElement('div');
+    toast.className = 'toast';
     toast.textContent = message;
-    toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#333;color:#fff;padding:12px 24px;border-radius:4px;z-index:10000;font-size:14px;';
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
+    setTimeout(() => {
+      toast.classList.add('toast-exit');
+      toast.addEventListener('animationend', () => toast.remove());
+    }, 3500);
   }
 
   // ── Utilities ─────────────────────────────────────────────────────────────
+
+  // ── Tabs ───────────────────────────────────────────────────────────────────
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.textContent.trim().toLowerCase() === tabId);
+    });
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+      panel.classList.toggle('active', panel.id === 'tab-' + tabId);
+    });
+  }
 
   function escHtml(str) {
     if (str == null) return '';
