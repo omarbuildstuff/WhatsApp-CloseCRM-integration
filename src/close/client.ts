@@ -45,14 +45,14 @@ export class CloseApiClient {
   }
 
   async findUserByEmail(email: string): Promise<{ userId: string; name: string } | null> {
-    const res = await this.http.get<{ data: Array<{ id: string; first_name: string; last_name: string; email: string }> }>('/membership/', {
-      params: { _fields: 'id,user_id,user_first_name,user_last_name,user_email' },
+    const res = await this.http.get<{ data: Array<{ id: string; first_name: string | null; last_name: string | null; email: string }> }>('/user/', {
+      params: { _fields: 'id,first_name,last_name,email', _limit: 200 },
     });
-    const members = res.data?.data;
-    if (!Array.isArray(members)) return null;
-    for (const m of members) {
-      if ((m as any).user_email?.toLowerCase() === email.toLowerCase()) {
-        return { userId: (m as any).user_id, name: `${(m as any).user_first_name} ${(m as any).user_last_name}`.trim() };
+    const users = res.data?.data;
+    if (!Array.isArray(users)) return null;
+    for (const u of users) {
+      if (u.email?.toLowerCase() === email.toLowerCase()) {
+        return { userId: u.id, name: `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() };
       }
     }
     return null;
