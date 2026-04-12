@@ -107,7 +107,7 @@ export class SessionManager extends EventEmitter {
 
     sock.ev.on('messages.upsert', ({ messages, type }) => {
       this.logger.info({ repId, type, count: messages.length }, 'messages.upsert received');
-      if (type === 'notify') {
+      if (type === 'notify' || type === 'append') {
         for (const msg of messages) {
           this.logger.info({ repId, msgId: msg.key.id, from: msg.key.remoteJid, fromMe: msg.key.fromMe }, 'Emitting message event');
           this.emit('message', { repId, msg });

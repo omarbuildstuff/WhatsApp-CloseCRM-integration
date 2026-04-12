@@ -59,11 +59,16 @@ export class CloseApiClient {
   }
 
   async findLeadByPhone(e164: string): Promise<LeadInfo | null> {
+    const leads = await this.findAllLeadsByPhone(e164);
+    return leads[0] ?? null;
+  }
+
+  async findAllLeadsByPhone(e164: string): Promise<LeadInfo[]> {
     const res = await this.http.get<CloseLeadListResponse>('/lead/', {
       params: {
         query: `phone:${e164}`,
         _fields: 'id,display_name',
-        _limit: 1,
+        _limit: 200,
       },
     });
     const leads = res.data?.data;
@@ -72,9 +77,7 @@ export class CloseApiClient {
         `Unexpected Close API response shape for phone lookup: ${JSON.stringify(res.data)}`
       );
     }
-    const lead = leads[0];
-    if (!lead) return null;
-    return { leadId: lead.id, leadName: lead.display_name };
+    return leads.map(l => ({ leadId: l.id, leadName: l.display_name }));
   }
 
   async postWhatsAppActivity(payload: WhatsAppActivityPayload): Promise<string | null> {

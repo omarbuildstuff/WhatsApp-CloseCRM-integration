@@ -100,20 +100,21 @@ export class MessageHandler {
     logger.info({ repId, waMessageId, jid, e164, body: body?.substring(0, 50) }, 'Message passed filters — persisting');
 
     try {
-      // Step 3: LEAD LOOKUP
-      const lead = e164 ? await phoneCache.lookup(e164) : null;
+      // Step 3: LEAD LOOKUP — find ALL leads matching this phone
+      const leads = e164 ? await phoneCache.lookupAll(e164) : [];
 
       // Step 4+5: PERSIST + SYNC — only for lead-matched messages
-      if (!lead || !e164) {
+      if (leads.length === 0 || !e164) {
         logger.debug({ repId, waMessageId, e164 }, 'No lead match — skipping DB persist and Close sync');
         return;
       }
 
+      // Persist with first lead for DB record
       const result = await pool.query(
         `INSERT INTO messages (id, rep_id, direction, wa_jid, phone_e164, lead_id, body, media_type, timestamp)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (id) DO NOTHING`,
-        [waMessageId, repId, dbDirection, jid, e164, lead.leadId, body, mediaType, timestamp]
+        [waMessageId, repId, dbDirection, jid, e164, leads[0].leadId, body, mediaType, timestamp]
       );
       const inserted = (result.rowCount ?? 0) > 0;
 
@@ -126,11 +127,13 @@ export class MessageHandler {
         const localPhone = repRow.rows[0]?.wa_phone ?? '';
         const closeUserId = repRow.rows[0]?.close_user_id ?? undefined;
 
-        // Fetch contact_id from lead's contacts matching the remote phone
-        const contactId = await closeClient.findContactId(lead.leadId, e164);
-        if (!contactId) {
-          logger.warn({ repId, leadId: lead.leadId, e164 }, 'No contact_id found on lead — skipping Close sync');
-        } else {
+        // Post activity to EVERY matching lead
+        for (const lead of leads) {
+          const contactId = await closeClient.findContactId(lead.leadId, e164);
+          if (!contactId) {
+            logger.warn({ repId, leadId: lead.leadId, e164 }, 'No contact_id found on lead — skipping Close sync for this lead');
+            continue;
+          }
           const payload: import('../close/types').WhatsAppActivityPayload = {
             lead_id: lead.leadId,
             contact_id: contactId,
@@ -142,26 +145,29 @@ export class MessageHandler {
             activity_at: timestamp.toISOString(),
             ...(closeUserId ? { user_id: closeUserId } : {}),
           };
-          logger.info({ repId, waMessageId, leadId: lead.leadId, direction: closeDirection }, 'Posting WhatsApp activity to Close');
+          logger.info({ repId, waMessageId, leadId: lead.leadId, leadCount: leads.length, direction: closeDirection }, 'Posting WhatsApp activity to Close');
           try {
             const activityId = await closeClient.postWhatsAppActivity(payload);
             if (activityId) {
-              logger.info({ repId, waMessageId, activityId }, 'Close activity created');
-              try {
-                await pool.query(
-                  'UPDATE messages SET close_activity_id = $1 WHERE id = $2',
-                  [activityId, waMessageId]
-                );
-              } catch (updateErr) {
-                logger.error(
-                  { repId, waMessageId, activityId, err: updateErr },
-                  'Close activity posted but DB close_activity_id update failed — manual reconciliation required'
-                );
+              logger.info({ repId, waMessageId, activityId, leadId: lead.leadId }, 'Close activity created');
+              // Store first activity ID in DB
+              if (lead === leads[0]) {
+                try {
+                  await pool.query(
+                    'UPDATE messages SET close_activity_id = $1 WHERE id = $2',
+                    [activityId, waMessageId]
+                  );
+                } catch (updateErr) {
+                  logger.error(
+                    { repId, waMessageId, activityId, err: updateErr },
+                    'Close activity posted but DB close_activity_id update failed'
+                  );
+                }
               }
             }
           } catch (closeErr: any) {
             logger.error(
-              { repId, waMessageId, err: closeErr, responseData: closeErr?.response?.data },
+              { repId, waMessageId, leadId: lead.leadId, err: closeErr, responseData: closeErr?.response?.data },
               'Failed to post WhatsApp activity to Close'
             );
           }

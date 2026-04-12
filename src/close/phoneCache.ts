@@ -6,6 +6,7 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 
 interface CacheEntry {
   lead: LeadInfo | null;
+  leads: LeadInfo[];
   expiresAt: number;
 }
 
@@ -30,21 +31,30 @@ export class PhoneCache {
    * 4. Close API via closeClient.findLeadByPhone() (cache miss)
    */
   async lookup(e164: string): Promise<LeadInfo | null> {
+    const leads = await this.lookupAll(e164);
+    return leads[0] ?? null;
+  }
+
+  async lookupAll(e164: string): Promise<LeadInfo[]> {
     // 1. In-memory check
     const memHit = this.mem.get(e164);
     if (memHit && memHit.expiresAt > Date.now()) {
-      return memHit.lead;
+      return memHit.leads;
     }
 
-    // 2. Coalesce concurrent lookups for the same number to avoid duplicate API calls
+    // 2. Coalesce concurrent lookups
     const existing = this.inFlight.get(e164);
-    if (existing) return existing;
+    if (existing) {
+      const lead = await existing;
+      return this.mem.get(e164)?.leads ?? (lead ? [lead] : []);
+    }
 
     const promise = this._fetchAndCache(e164).finally(() => {
       this.inFlight.delete(e164);
     });
     this.inFlight.set(e164, promise);
-    return promise;
+    await promise;
+    return this.mem.get(e164)?.leads ?? [];
   }
 
   /**
@@ -70,21 +80,22 @@ export class PhoneCache {
       const lead = row.lead_id
         ? { leadId: row.lead_id, leadName: row.lead_name ?? '' }
         : null;
-      this.mem.set(e164, { lead, expiresAt: Date.now() + ONE_HOUR_MS });
-      return lead;
+      // DB only stores first lead — trigger full API lookup for multi-lead support
+      // Fall through to API call below
     }
 
     // 4. Close API call — handle failure gracefully
-    let lead: LeadInfo | null;
+    let leads: LeadInfo[];
     try {
-      lead = await closeClient.findLeadByPhone(e164);
+      leads = await closeClient.findAllLeadsByPhone(e164);
     } catch (err) {
       console.error(`[PhoneCache] Close API lookup failed for ${e164}:`, err);
-      // Do not cache — let the next call retry after a natural delay
       return null;
     }
 
-    // 5. Persist to DB (upsert) and in-memory
+    const lead = leads[0] ?? null;
+
+    // 5. Persist first lead to DB (upsert) for backwards compat, and all leads in-memory
     try {
       await pool.query(
         `INSERT INTO close_phone_cache (phone_e164, lead_id, lead_name, cached_at)
@@ -97,10 +108,9 @@ export class PhoneCache {
       );
     } catch (err) {
       console.error(`[PhoneCache] DB upsert failed for ${e164}:`, err);
-      // In-memory cache still set below — survivable
     }
 
-    this.mem.set(e164, { lead, expiresAt: Date.now() + ONE_HOUR_MS });
+    this.mem.set(e164, { lead, leads, expiresAt: Date.now() + ONE_HOUR_MS });
     return lead;
   }
 
