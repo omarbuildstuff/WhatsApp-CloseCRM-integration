@@ -59,7 +59,32 @@ export function detectMediaType(msg: proto.IWebMessageInfo): string | null {
   return null;
 }
 
-export class MessageHandler {
+  // Cache group participants (1 hour TTL)
+  private groupCache = new Map<string, { participants: string[]; expiresAt: number }>();
+
+  private async getGroupParticipantPhones(repId: string, groupJid: string): Promise<string[]> {
+    const cached = this.groupCache.get(groupJid);
+    if (cached && cached.expiresAt > Date.now()) return cached.participants;
+
+    const sock = sessionManager.getSession(repId);
+    if (!sock) return [];
+
+    try {
+      const metadata = await sock.groupMetadata(groupJid);
+      const phones: string[] = [];
+      for (const p of metadata.participants) {
+        const e164 = await resolveJidToE164(p.id);
+        if (e164) phones.push(e164);
+      }
+      this.groupCache.set(groupJid, { participants: phones, expiresAt: Date.now() + 60 * 60 * 1000 });
+      logger.info({ repId, groupJid, participantCount: phones.length }, 'Cached group participants');
+      return phones;
+    } catch (err) {
+      logger.warn({ repId, groupJid, err }, 'Failed to fetch group metadata');
+      return [];
+    }
+  }
+
   /**
    * Handle an inbound WhatsApp message event from Baileys.
    * Implements the 5-step pipeline: filter -> extract -> lookup -> persist -> sync
@@ -76,125 +101,155 @@ export class MessageHandler {
     const waMessageId = msg.key.id;
     const body = extractBody(msg);
     const mediaType = detectMediaType(msg);
-
-    // For group messages, resolve the participant's phone (the sender)
-    // For DMs, resolve the remote JID as before
-    const phoneJid = isGroup ? (msg.key.participant ?? null) : jid;
-
-    if (isGroup && !phoneJid) {
-      logger.debug({ repId, jid }, 'Filtered: group message without participant');
-      return;
-    }
-
-    // Skip outgoing group messages — rep's message goes to the group, not a specific lead
-    if (isGroup && msg.key.fromMe) {
-      logger.debug({ repId, jid }, 'Filtered: outgoing group message');
-      return;
-    }
-
-    let e164 = phoneJid ? await resolveJidToE164(phoneJid) : null;
-    // Fallback: if @lid JID wasn't in lid_phone_map, try live resolution via Baileys socket
-    if (!e164 && phoneJid) {
-      const decoded = jidDecode(phoneJid);
-      if (decoded?.server === 'lid') {
-        e164 = await sessionManager.resolveLidJid(repId, phoneJid);
-        if (e164) {
-          logger.info({ repId, jid: phoneJid, e164 }, 'Resolved @lid JID via live Baileys query');
-        }
-      }
-    }
     const isFromMe = !!msg.key.fromMe;
     const dbDirection = isFromMe ? 'outgoing' : 'incoming';
     const closeDirection: 'incoming' | 'outgoing' = isFromMe ? 'outgoing' : 'incoming';
     const tsSec = msg.messageTimestamp
       ? (typeof msg.messageTimestamp === 'number'
           ? msg.messageTimestamp
-          : msg.messageTimestamp.toNumber())   // Long has .toNumber()
+          : msg.messageTimestamp.toNumber())
       : 0;
-    const timestamp = new Date(tsSec * 1000); // PITFALL: seconds, not ms!
+    const timestamp = new Date(tsSec * 1000);
 
-    logger.info({ repId, waMessageId, jid, e164, isGroup, body: body?.substring(0, 50) }, 'Message passed filters — persisting');
-
-    // For group messages, prefix the body with [Group: <name>] for context in Close
+    // For group messages, prefix the body with [Group Chat] for context in Close
     const groupPrefix = isGroup ? `[Group Chat] ` : '';
     const closeBody = groupPrefix + (body ?? '');
 
-    try {
-      // Step 3: LEAD LOOKUP — find ALL leads matching this phone
-      const leads = e164 ? await phoneCache.lookupAll(e164) : [];
+    // ── Group message: outgoing → sync to all lead-participants in the group
+    //                   incoming → sync to the sender's lead(s)
+    if (isGroup) {
+      if (isFromMe) {
+        // Outgoing group message: find all participants who are leads
+        const participantPhones = await this.getGroupParticipantPhones(repId, jid);
+        if (participantPhones.length === 0) {
+          logger.debug({ repId, jid }, 'No resolvable participants in group');
+          return;
+        }
+        logger.info({ repId, waMessageId, jid, participantCount: participantPhones.length, body: body?.substring(0, 50) }, 'Outgoing group message — checking participants for leads');
+        await this.syncToPhones(repId, waMessageId, jid, participantPhones, closeBody, mediaType, closeDirection, timestamp);
+      } else {
+        // Incoming group message: sync to the sender's lead(s)
+        const phoneJid = msg.key.participant ?? null;
+        if (!phoneJid) { logger.debug({ repId, jid }, 'Filtered: group message without participant'); return; }
+        let e164 = await resolveJidToE164(phoneJid);
+        if (!e164) {
+          const decoded = jidDecode(phoneJid);
+          if (decoded?.server === 'lid') {
+            e164 = await sessionManager.resolveLidJid(repId, phoneJid);
+          }
+        }
+        if (!e164) { logger.debug({ repId, jid, phoneJid }, 'Cannot resolve group participant phone'); return; }
+        logger.info({ repId, waMessageId, jid, e164, body: body?.substring(0, 50) }, 'Incoming group message — syncing sender');
+        await this.syncToPhones(repId, waMessageId, jid, [e164], closeBody, mediaType, closeDirection, timestamp);
+      }
+      return;
+    }
 
-      // Step 4+5: PERSIST + SYNC — only for lead-matched messages
-      if (leads.length === 0 || !e164) {
-        logger.debug({ repId, waMessageId, e164 }, 'No lead match — skipping DB persist and Close sync');
+    // ── DM message (existing logic)
+    let e164 = await resolveJidToE164(jid);
+    if (!e164) {
+      const decoded = jidDecode(jid);
+      if (decoded?.server === 'lid') {
+        e164 = await sessionManager.resolveLidJid(repId, jid);
+        if (e164) {
+          logger.info({ repId, jid, e164 }, 'Resolved @lid JID via live Baileys query');
+        }
+      }
+    }
+
+    logger.info({ repId, waMessageId, jid, e164, body: body?.substring(0, 50) }, 'DM message — syncing');
+
+    if (!e164) {
+      logger.debug({ repId, waMessageId }, 'No phone resolved — skipping');
+      return;
+    }
+
+    await this.syncToPhones(repId, waMessageId, jid, [e164], closeBody, mediaType, closeDirection, timestamp);
+  }
+
+  /**
+   * Sync a message to Close for all leads matching any of the given phone numbers.
+   */
+  private async syncToPhones(
+    repId: string,
+    waMessageId: string,
+    jid: string,
+    phones: string[],
+    messageBody: string,
+    mediaType: string | null,
+    direction: 'incoming' | 'outgoing',
+    timestamp: Date,
+  ): Promise<void> {
+    try {
+      // Collect all leads across all phone numbers
+      const allLeads: Array<{ leadId: string; leadName: string; phone: string }> = [];
+      for (const phone of phones) {
+        const leads = await phoneCache.lookupAll(phone);
+        for (const lead of leads) {
+          allLeads.push({ ...lead, phone });
+        }
+      }
+
+      if (allLeads.length === 0) {
+        logger.debug({ repId, waMessageId, phones }, 'No lead matches — skipping');
         return;
       }
 
       // Persist with first lead for DB record
+      const dbDirection = direction === 'outgoing' ? 'outgoing' : 'incoming';
+      const firstLead = allLeads[0];
       const result = await pool.query(
         `INSERT INTO messages (id, rep_id, direction, wa_jid, phone_e164, lead_id, body, media_type, timestamp)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (id) DO NOTHING`,
-        [waMessageId, repId, dbDirection, jid, e164, leads[0].leadId, body, mediaType, timestamp]
+        [waMessageId, repId, dbDirection, jid, firstLead.phone, firstLead.leadId, messageBody, mediaType, timestamp]
       );
       const inserted = (result.rowCount ?? 0) > 0;
+      if (!inserted) return;
 
-      if (inserted) {
-        // Fetch rep's WA phone and Close user ID for activity attribution
-        const repRow = await pool.query<{ wa_phone: string | null; close_user_id: string | null }>(
-          'SELECT wa_phone, close_user_id FROM reps WHERE id = $1',
-          [repId]
-        );
-        const localPhone = repRow.rows[0]?.wa_phone ?? '';
-        const closeUserId = repRow.rows[0]?.close_user_id ?? undefined;
+      // Fetch rep info
+      const repRow = await pool.query<{ wa_phone: string | null; close_user_id: string | null }>(
+        'SELECT wa_phone, close_user_id FROM reps WHERE id = $1',
+        [repId]
+      );
+      const localPhone = repRow.rows[0]?.wa_phone ?? '';
+      const closeUserId = repRow.rows[0]?.close_user_id ?? undefined;
 
-        // Post activity to EVERY matching lead
-        for (const lead of leads) {
-          const contactId = await closeClient.findContactId(lead.leadId, e164);
-          if (!contactId) {
-            logger.warn({ repId, leadId: lead.leadId, e164 }, 'No contact_id found on lead — skipping Close sync for this lead');
-            continue;
-          }
-          const payload: import('../close/types').WhatsAppActivityPayload = {
-            lead_id: lead.leadId,
-            contact_id: contactId,
-            direction: closeDirection,
-            external_whatsapp_message_id: waMessageId,
-            local_phone: localPhone,
-            remote_phone: e164,
-            message_markdown: closeBody,
-            activity_at: timestamp.toISOString(),
-            ...(closeUserId ? { user_id: closeUserId } : {}),
-          };
-          logger.info({ repId, waMessageId, leadId: lead.leadId, leadCount: leads.length, direction: closeDirection }, 'Posting WhatsApp activity to Close');
-          try {
-            const activityId = await closeClient.postWhatsAppActivity(payload);
-            if (activityId) {
-              logger.info({ repId, waMessageId, activityId, leadId: lead.leadId }, 'Close activity created');
-              // Store first activity ID in DB
-              if (lead === leads[0]) {
-                try {
-                  await pool.query(
-                    'UPDATE messages SET close_activity_id = $1 WHERE id = $2',
-                    [activityId, waMessageId]
-                  );
-                } catch (updateErr) {
-                  logger.error(
-                    { repId, waMessageId, activityId, err: updateErr },
-                    'Close activity posted but DB close_activity_id update failed'
-                  );
-                }
-              }
+      // Post activity to every matching lead
+      let firstActivityId: string | null = null;
+      for (const lead of allLeads) {
+        const contactId = await closeClient.findContactId(lead.leadId, lead.phone);
+        if (!contactId) {
+          logger.warn({ repId, leadId: lead.leadId, phone: lead.phone }, 'No contact_id — skipping this lead');
+          continue;
+        }
+        const payload: import('../close/types').WhatsAppActivityPayload = {
+          lead_id: lead.leadId,
+          contact_id: contactId,
+          direction,
+          external_whatsapp_message_id: waMessageId,
+          local_phone: localPhone,
+          remote_phone: lead.phone,
+          message_markdown: messageBody,
+          activity_at: timestamp.toISOString(),
+          ...(closeUserId ? { user_id: closeUserId } : {}),
+        };
+        logger.info({ repId, waMessageId, leadId: lead.leadId, leadCount: allLeads.length, direction }, 'Posting WhatsApp activity to Close');
+        try {
+          const activityId = await closeClient.postWhatsAppActivity(payload);
+          if (activityId) {
+            logger.info({ repId, waMessageId, activityId, leadId: lead.leadId }, 'Close activity created');
+            if (!firstActivityId) {
+              firstActivityId = activityId;
+              await pool.query('UPDATE messages SET close_activity_id = $1 WHERE id = $2', [activityId, waMessageId]).catch(() => {});
             }
-          } catch (closeErr: any) {
-            logger.error(
-              { repId, waMessageId, leadId: lead.leadId, err: closeErr, responseData: closeErr?.response?.data },
-              'Failed to post WhatsApp activity to Close'
-            );
           }
+        } catch (closeErr: any) {
+          logger.error({ repId, waMessageId, leadId: lead.leadId, err: closeErr, responseData: closeErr?.response?.data }, 'Failed to post activity to Close');
         }
       }
     } catch (err) {
-      logger.error({ repId, waMessageId, err }, 'Failed to process inbound message');
+      logger.error({ repId, waMessageId, err }, 'Failed to sync message');
     }
   }
 }
