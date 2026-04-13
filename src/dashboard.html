@@ -799,7 +799,7 @@
             <textarea id="send-message" placeholder="Your message..."></textarea>
           </div>
           <div class="form-row full" style="justify-content:flex-end;flex-direction:row;align-items:end">
-            <button class="btn btn-primary btn-sm" onclick="sendMessage()">Send</button>
+            <button class="btn btn-primary btn-sm" id="send-btn" onclick="sendMessage()">Send</button>
           </div>
         </div>
         <p id="send-result" class="result-msg"></p>
@@ -1074,7 +1074,7 @@
     const repId = document.getElementById('send-rep').value;
     const phone = document.getElementById('send-phone').value.trim();
     const message = document.getElementById('send-message').value.trim();
-    const btn = document.querySelector('[onclick="sendMessage()"]');
+    const btn = document.getElementById('send-btn');
 
     if (!repId || !phone || !message) {
       showResult('send-result', 'All fields are required.', false);
@@ -1082,9 +1082,14 @@
     }
 
     btn.classList.add('is-loading');
+    btn.textContent = 'Sending...';
     try {
-      const res = await apiFetch('/api/send', {
+      const res = await fetch(API_BASE + '/api/send', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+        },
         body: JSON.stringify({ repId, phone, message }),
       });
       const body = await res.json().catch(() => ({}));
@@ -1095,11 +1100,10 @@
         showResult('send-result', 'Error: ' + (body.error || res.statusText), false);
       }
     } catch (err) {
-      if (err.message !== 'Unauthorized') {
-        showResult('send-result', 'Network error: ' + err.message, false);
-      }
+      showResult('send-result', 'Network error: ' + err.message, false);
     } finally {
       btn.classList.remove('is-loading');
+      btn.textContent = 'Send';
     }
   }
 
