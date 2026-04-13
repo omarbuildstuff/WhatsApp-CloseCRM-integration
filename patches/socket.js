@@ -486,10 +486,9 @@ export const makeSocket = (config) => {
         }
         if (!ws.isClosed && !ws.isClosing) {
             try {
-                await Promise.race([
-                    ws.close(),
-                    new Promise(resolve => setTimeout(resolve, 5000))
-                ]);
+                ws.close();
+                // Force cleanup after 5s if close hangs
+                setTimeout(() => { ws.removeAllListeners(); }, 5000);
             }
             catch { }
         }
