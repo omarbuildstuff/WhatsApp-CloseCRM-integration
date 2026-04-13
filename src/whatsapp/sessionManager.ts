@@ -12,7 +12,6 @@ const MAX_RECONNECT_ATTEMPTS = 10;
 const TERMINAL_REASONS = new Set([
   DisconnectReason.loggedOut,
   DisconnectReason.multideviceMismatch,
-  DisconnectReason.forbidden,
 ]);
 
 export class SessionManager extends EventEmitter {
@@ -174,14 +173,27 @@ export class SessionManager extends EventEmitter {
       return;
     }
 
+    // Verify credentials exist before attempting reconnect
+    const credsExist = await pool.query(
+      'SELECT 1 FROM wa_auth_creds WHERE rep_id = $1', [repId]
+    );
+    if (credsExist.rows.length === 0) {
+      this.logger.warn({ repId, statusCode }, 'No credentials in DB — cannot reconnect, marking needs_qr');
+      await pool.query("UPDATE reps SET status = 'needs_qr' WHERE id = $1", [repId]);
+      this.sessions.delete(repId);
+      this.emit('status', { repId, status: 'needs_qr' });
+      return;
+    }
+
     // Reconnect branch — exponential backoff
     const attempt = this.reconnectAttempts.get(repId) ?? 0;
 
     if (attempt >= MAX_RECONNECT_ATTEMPTS) {
-      this.logger.warn({ repId, attempt }, 'Max reconnect attempts reached — marking as disconnected');
-      await pool.query("UPDATE reps SET status = 'disconnected' WHERE id = $1", [repId]);
+      this.logger.warn({ repId, attempt }, 'Max reconnect attempts reached — marking as needs_qr');
+      await pool.query("UPDATE reps SET status = 'needs_qr' WHERE id = $1", [repId]);
+      await this.clearAuthState(repId);
       this.sessions.delete(repId);
-      this.emit('status', { repId, status: 'disconnected' });
+      this.emit('status', { repId, status: 'needs_qr' });
       return;
     }
 
@@ -209,7 +221,11 @@ export class SessionManager extends EventEmitter {
     );
     this.logger.info({ count: rows.length }, 'Resuming rep sessions');
     for (const row of rows) {
-      await this.connect(row.id);
+      try {
+        await this.connect(row.id);
+      } catch (err) {
+        this.logger.error({ repId: row.id, err }, 'Failed to resume session — skipping');
+      }
     }
   }
 
