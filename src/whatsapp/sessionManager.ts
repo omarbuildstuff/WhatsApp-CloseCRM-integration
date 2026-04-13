@@ -11,8 +11,6 @@ const MAX_RECONNECT_ATTEMPTS = 10;
 
 const TERMINAL_REASONS = new Set([
   DisconnectReason.loggedOut,
-  DisconnectReason.badSession,
-  DisconnectReason.connectionReplaced,
   DisconnectReason.multideviceMismatch,
   DisconnectReason.forbidden,
 ]);
