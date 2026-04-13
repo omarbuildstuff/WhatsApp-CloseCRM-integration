@@ -307,13 +307,14 @@ export function createDashboardRouter(): express.Router {
         return;
       }
 
-      // Build WhatsApp JID and send message (with 10s timeout to prevent hanging)
+      // Build WhatsApp JID and send message (with 30s timeout — first message
+      // to a new contact needs ~15s for Signal session establishment)
       const jid = jidEncode(digits, 's.whatsapp.net');
       logger.info({ repId: repId.trim(), jid }, 'Sending message via Baileys');
       const result = await Promise.race([
         sock.sendMessage(jid, { text: message.trim() }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Send timed out — WhatsApp session may not be ready')), 10_000)
+          setTimeout(() => reject(new Error('Send timed out — try again')), 30_000)
         )
       ]);
       logger.info({ repId: repId.trim(), messageId: result?.key?.id }, 'Message sent');
