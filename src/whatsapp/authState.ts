@@ -51,12 +51,12 @@ export async function usePgAuthState(
                 [repId, type, id]
               );
             } else {
-              const serialized = JSON.parse(JSON.stringify(value, BufferJSON.replacer));
+              const jsonStr = JSON.stringify(value, BufferJSON.replacer);
               await client.query(
                 `INSERT INTO wa_auth_keys (rep_id, key_type, key_id, value)
-                 VALUES ($1, $2, $3, $4)
+                 VALUES ($1, $2, $3, $4::jsonb)
                  ON CONFLICT (rep_id, key_type, key_id) DO UPDATE SET value = EXCLUDED.value`,
-                [repId, type, id, serialized]
+                [repId, type, id, jsonStr]
               );
             }
           }
@@ -76,12 +76,12 @@ export async function usePgAuthState(
 
   // 4. Define saveCreds
   const saveCreds = async (): Promise<void> => {
-    const serialized = JSON.parse(JSON.stringify(creds, BufferJSON.replacer));
+    const jsonStr = JSON.stringify(creds, BufferJSON.replacer);
     await pool.query(
       `INSERT INTO wa_auth_creds (rep_id, creds, updated_at)
-       VALUES ($1, $2, NOW())
+       VALUES ($1, $2::jsonb, NOW())
        ON CONFLICT (rep_id) DO UPDATE SET creds = EXCLUDED.creds, updated_at = NOW()`,
-      [repId, serialized]
+      [repId, jsonStr]
     );
   };
 
