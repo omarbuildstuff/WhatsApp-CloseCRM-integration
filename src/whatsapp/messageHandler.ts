@@ -92,17 +92,18 @@ export class MessageHandler {
    */
   async handle(repId: string, msg: proto.IWebMessageInfo): Promise<void> {
     // Step 1: FILTER CHAIN — return early, no side effects
-    if (!msg.key.remoteJid) { logger.debug({ repId }, 'Filtered: no remoteJid'); return; }
-    if (!msg.message) { logger.debug({ repId, msgId: msg.key.id }, 'Filtered: no message content'); return; }
-    if (!msg.key.id) { logger.debug({ repId }, 'Filtered: no message id'); return; }
+    const key = msg.key;
+    if (!key?.remoteJid) { logger.debug({ repId }, 'Filtered: no remoteJid'); return; }
+    if (!msg.message) { logger.debug({ repId, msgId: key.id }, 'Filtered: no message content'); return; }
+    if (!key.id) { logger.debug({ repId }, 'Filtered: no message id'); return; }
 
     // Step 2: EXTRACT
-    const isGroup = msg.key.remoteJid.endsWith('@g.us');
-    const jid = msg.key.remoteJid;
-    const waMessageId = msg.key.id;
+    const isGroup = key.remoteJid.endsWith('@g.us');
+    const jid = key.remoteJid;
+    const waMessageId = key.id;
     const body = extractBody(msg);
     const mediaType = detectMediaType(msg);
-    const isFromMe = !!msg.key.fromMe;
+    const isFromMe = !!key.fromMe;
     const dbDirection = isFromMe ? 'outgoing' : 'incoming';
     const closeDirection: 'incoming' | 'outgoing' = isFromMe ? 'outgoing' : 'incoming';
     const tsSec = msg.messageTimestamp
